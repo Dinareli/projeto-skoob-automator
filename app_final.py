@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import time
 import re
 
-# --- CONFIGURAÇÕES DO USUÁRIO ---
+# --- CONFIGURAÇÕES DO UTILIZADOR ---
 # Coloque suas credenciais e tokens aqui.
 SKOOB_USER = "dinareli.lima@gmail.com"
 SKOOB_PASS = "euamococa"
@@ -17,13 +17,12 @@ READWISE_TOKEN = "TbP8OPBwhy82YU9vByDG99ZRmOTDabG2DXrxlvY3d1dlMItSCc"
 
 def get_latest_progress_from_readwise(book_title):
     """
-    Busca no Readwise pelo livro e retorna o progresso mais recente.
+    Busca no Readwise pelo livro e retorna o progresso e o texto do último destaque.
     """
     print(f"-> Buscando progresso para '{book_title}' no Readwise...")
     headers = {"Authorization": f"Token {READWISE_TOKEN}"}
     books_url = "https://readwise.io/api/v2/books/"
     try:
-        # API do Readwise faz uma pesquisa e pedimos a lista completa de resultados
         response = requests.get(books_url, headers=headers)
         response.raise_for_status()
         books_data = response.json()
@@ -49,9 +48,12 @@ def get_latest_progress_from_readwise(book_title):
 
         if not highlights_data['results']:
             print(f"-> Nenhum destaque encontrado para '{book_title}'.")
-            return {"title": book_title, "author": book_info['author'], "progress": 0}
+            return {"title": book_title, "author": book_info['author'], "progress": 0, "highlight_text": ""}
             
         latest_highlight = highlights_data['results'][0]
+        highlight_text = latest_highlight.get('text', '')
+        print(f"-> Destaque encontrado: \"{highlight_text[:50]}...\"")
+        
         location_str = latest_highlight.get('location')
         if location_str:
             cleaned_location = str(location_str).replace(',', '').replace('.', '')
@@ -59,10 +61,10 @@ def get_latest_progress_from_readwise(book_title):
             if match:
                 progress = int(match.group(0))
                 print(f"-> Progresso encontrado: Localização/Página {progress}")
-                return {"title": book_title, "author": book_info['author'], "progress": progress}
+                return {"title": book_title, "author": book_info['author'], "progress": progress, "highlight_text": highlight_text}
 
         print(f"[AVISO] Não foi possível determinar a página/localização do último destaque.")
-        return {"title": book_title, "author": book_info['author'], "progress": 0}
+        return {"title": book_title, "author": book_info['author'], "progress": 0, "highlight_text": highlight_text}
     except requests.exceptions.RequestException as e:
         print(f"[ERRO] Falha ao comunicar com a API do Readwise: {e}")
         return None
@@ -71,6 +73,7 @@ def get_session_cookies():
     """Usa o navegador apenas para fazer login e obter os cookies de sessão."""
     print("-> Iniciando navegador para obter cookies de sessão do Skoob...")
     options = uc.ChromeOptions()
+    # options.add_argument("--headless") # Comentado para aumentar a estabilidade
     prefs = {"credentials_enable_service": False, "profile.password_manager_enabled": False}
     options.add_experimental_option("prefs", prefs)
     driver = uc.Chrome(options=options)
@@ -94,7 +97,7 @@ def get_session_cookies():
 
 def find_skoob_book_details(session_cookies, book_title, book_author):
     """
-    Usa os cookies para pesquisar o livro no Skoob e extrair seus IDs e total de páginas.
+    O DETETIVE: Usa os cookies para pesquisar o livro no Skoob e extrair seus IDs e URL.
     """
     print(f"-> Pesquisando por '{book_title}' de '{book_author}' no Skoob...")
     search_url = "https://www.skoob.com.br/livro/lista/"
@@ -126,11 +129,7 @@ def find_skoob_book_details(session_cookies, book_title, book_author):
                         match = re.search(r'(\d+)ed(\d+)', url)
                         if match:
                             book_id, edition_id = match.groups()
-                            
-                            pages_info = result.find(string=re.compile(r'Páginas'))
-                            total_pages = int(re.search(r'\d+', pages_info).group(0)) if pages_info else 0
-                            
-                            return {"book_id": book_id, "edition_id": edition_id, "total_pages": total_pages}
+                            return {"book_id": book_id, "edition_id": edition_id, "page_url": url}
         
         print(f"[ERRO] Nenhum resultado correspondente encontrado para '{book_title}' de '{book_author}'.")
         return None
@@ -139,9 +138,9 @@ def find_skoob_book_details(session_cookies, book_title, book_author):
         print(f"[ERRO] Falha ao pesquisar no Skoob: {e}")
         return None
 
-def update_skoob_book(session_cookies, skoob_details, new_status_id, current_page=0):
+def update_skoob_book(session_cookies, skoob_details, new_status_id, current_page=0, comment=""):
     """
-    Usa os cookies para enviar um pedido direto à API interna do Skoob para atualizar o progresso ou estado.
+    Usa uma abordagem híbrida: API para o estado, e navegador para o progresso.
     """
     status_map = {
         1: "Lido", 2: "Lendo", 3: "Quero ler", 4: "Relendo", 5: "Abandonei"
@@ -156,47 +155,76 @@ def update_skoob_book(session_cookies, skoob_details, new_status_id, current_pag
     }
     
     try:
-        print(f"-> Enviando pedido GET para: {update_url}")
+        print(f"-> (API) Enviando pedido para definir o estado do livro...")
         response = requests.get(update_url, cookies=session_cookies, headers=headers)
         response.raise_for_status()
         
         if new_status_id in [2, 4] and current_page > 0:
-            print(f"-> Estado definido. Agora, atualizando o número da página para {current_page}...")
-            page_update_url = "https://www.skoob.com.br/livro/historico/salvar/"
-            payload = {
-                'data[Historico][id_livro]': skoob_details['book_id'],
-                'data[Historico][id_edicao]': skoob_details['edition_id'],
-                'data[Historico][estante]': new_status_id,
-                'data[Historico][pg]': current_page,
-                'data[Historico][comentario]': ''
-            }
-            response = requests.post(page_update_url, cookies=session_cookies, data=payload, headers=headers)
-            response.raise_for_status()
+            print(f"-> (UI) Estado definido. Abrindo navegador para publicar progresso...")
+            update_progress_via_ui(session_cookies, skoob_details, current_page, comment)
 
-        print("-> Sucesso! O livro foi atualizado no Skoob através da API.")
+        print("-> Sucesso! O livro foi atualizado no Skoob.")
         return True
     except requests.exceptions.RequestException as e:
         print(f"[ERRO] Falha ao comunicar com a API do Skoob: {e}")
         return False
 
+def update_progress_via_ui(cookies, skoob_details, page, comment):
+    """
+    Usa o navegador de forma cirúrgica apenas para preencher e salvar o histórico de leitura.
+    """
+    options = uc.ChromeOptions()
+    driver = uc.Chrome(options=options)
+    try:
+        # Injetamos os cookies numa página qualquer do Skoob para estarmos logados
+        driver.get("https://www.skoob.com.br/login/0/")
+        for name, value in cookies.items():
+            driver.add_cookie({'name': name, 'value': value})
+        
+        # Navegamos para o URL correto do modal de histórico
+        history_url = f"https://www.skoob.com.br/estante/s_historico_leitura/{skoob_details['edition_id']}"
+        print(f"-> Navegando para a página de histórico: {history_url}")
+        driver.get(history_url)
+
+        # --- CORREÇÃO FINAL BASEADA NA SUA DESCOBERTA ---
+        # Preenchemos o formulário usando os IDs exatos que você encontrou.
+        print(f"-> Preenchendo página '{page}' e comentário...")
+        page_input = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.ID, "LendoHistoricoPaginas"))
+        )
+        page_input.send_keys(str(page))
+        
+        comment_input = driver.find_element(By.ID, "LendoHistoricoTexto")
+        comment_input.send_keys(comment)
+        
+        # Clicamos em "Gravar histórico de leitura"
+        # Usamos o 'value' do botão para o encontrar de forma fiável.
+        save_button = driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Gravar histórico de leitura']")
+        save_button.click()
+        print("-> Formulário de progresso enviado.")
+        time.sleep(5) # Pausa para garantir que a ação é processada e o feed atualiza
+
+    except Exception as e:
+        print(f"[ERRO] Falha ao atualizar o progresso via UI: {e}")
+        driver.save_screenshot("erro_progresso_ui.png")
+    finally:
+        driver.quit()
+
+# --- ORQUESTRAÇÃO PRINCIPAL ---
 if __name__ == "__main__":
-    # 1. PERGUNTAR AO USUÁRIO QUAL LIVRO SINCRONIZAR
     book_to_sync = input("Qual o título do livro que você quer sincronizar (exatamente como no Kindle)? ")
     
-    # 2. OBTER O PROGRESSO MAIS RECENTE DO READWISE
     progress_info = get_latest_progress_from_readwise(book_to_sync)
     
     if progress_info:
-        # --- LÓGICA DE AUTOR ---
         main_author = progress_info['author'].split(' and ')[0].split(',')[0].strip()
         print(f"-> Autor principal identificado no Readwise: '{main_author}'")
         
-        # 3. PERGUNTAR AO UTILIZADOR QUAL AÇÃO TOMAR
         print("\n--- Ação no Skoob ---")
         print("1: Lido")
-        print("2: Lendo (usará o progresso do Readwise)")
+        print("2: Lendo (publicará o progresso e o destaque do Readwise)")
         print("3: Quero ler")
-        print("4: Relendo (usará o progresso do Readwise)")
+        print("4: Relendo (publicará o progresso e o destaque do Readwise)")
         print("5: Abandonei")
         
         try:
@@ -207,11 +235,9 @@ if __name__ == "__main__":
             print("Opção inválida. A sair.")
             exit()
 
-        # 4. OBTER OS COOKIES DE SESSÃO DO SKOOB
         skoob_cookies = get_session_cookies()
         
         if skoob_cookies:
-            # 5. ENCONTRAR OS DETALHES DO LIVRO NO SKOOB
             skoob_book_info = find_skoob_book_details(
                 session_cookies=skoob_cookies,
                 book_title=progress_info['title'],
@@ -219,12 +245,12 @@ if __name__ == "__main__":
             )
             
             if skoob_book_info:
-                # 6. ATUALIZAR O LIVRO NO SKOOB COM A ESCOLHA DO USUÁRIO
                 update_skoob_book(
                     session_cookies=skoob_cookies,
                     skoob_details=skoob_book_info,
                     new_status_id=choice,
-                    current_page=progress_info['progress']
+                    current_page=progress_info['progress'],
+                    comment=progress_info['highlight_text']
                 )
 
     print("\n--- Sincronização concluída ---")
