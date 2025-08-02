@@ -1,4 +1,4 @@
-ervices:
+services:
   - type: web
     name: skoob-sync-api
     runtime: python
