@@ -3,7 +3,7 @@ services:
     name: skoob-sync-api
     runtime: python
     rootDir: backend 
-    buildCommand: "./build.sh" 
+    buildCommand: "chmod +x build.sh && ./build.sh"
     startCommand: "gunicorn api:app"
     envVars:
       - key: PYTHON_VERSION
