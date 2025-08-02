@@ -1,3 +1,8 @@
+build:
+  buildpacks:
+    - url: https://github.com/heroku/heroku-buildpack-google-chrome
+    - url: https://github.com/heroku/heroku-buildpack-chromedriver
+
 services:
   - type: web
     name: skoob-sync-api
@@ -12,8 +17,3 @@ services:
         value: /usr/bin/chromedriver
       - key: PYTHON_VERSION
         value: 3.11.4 
-    # A secção 'build' está agora DENTRO da definição do serviço
-    build:
-      buildpacks:
-        - url: https://github.com/heroku/heroku-buildpack-google-chrome
-        - url: https://github.com/heroku/heroku-buildpack-chromedriver
