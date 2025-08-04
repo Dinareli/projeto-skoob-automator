@@ -2,18 +2,17 @@ services:
   - type: web
     name: skoob-sync-api
     runtime: python
-    rootDir: backend 
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn api:app"
+    rootDir: backend
     plan: free
+    buildCommand: |
+      apt-get update && \
+      apt-get install -y wget gnupg ca-certificates && \
+      wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+      sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' && \
+      apt-get update && \
+      apt-get install -y google-chrome-stable && \
+      pip install -r requirements.txt
+    startCommand: "gunicorn api:app"
     envVars:
-      - key: GOOGLE_CHROME_BIN
-        value: /usr/bin/google-chrome
-      - key: CHROME_DRIVER_PATH
-        value: /usr/bin/chromedriver
       - key: PYTHON_VERSION
-        value: 3.11.4 
-build:
-  buildpacks:
-    - url: https://github.com/heroku/heroku-buildpack-google-chrome
-    - url: https://github.com/heroku/heroku-buildpack-chromedriver
+        value: 3.11.4
