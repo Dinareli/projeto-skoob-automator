@@ -63,7 +63,7 @@ def get_session_cookies(skoob_user, skoob_pass):
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     
-    driver = uc.Chrome(options=options, use_subprocess=True, version_main=114) 
+    driver = uc.Chrome(options=options, use_subprocess=True) 
     
     try:
         driver.get("https://www.skoob.com.br/login/")
