@@ -1,14 +1,4 @@
-// Para que este código funcione, você precisa de adicionar as seguintes
-// dependências ao seu ficheiro `pubspec.yaml`:
-//
-// dependencies:
-//   flutter:
-//     sdk: flutter
-//   http: ^1.2.1
-//   shared_preferences: ^2.2.3
-
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // Importa a constante para verificar a plataforma
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,7 +32,7 @@ class SkoobSyncApp extends StatelessWidget {
   }
 }
 
-// --- Widget de Controlo de Autenticação ---
+// --- Widget de Controle de Autenticação ---
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
@@ -99,7 +89,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 }
 
 
-// --- Ecrã de Login ---
+// --- Tela de Login ---
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
   const LoginScreen({super.key, required this.onLoginSuccess});
@@ -194,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 
-// --- Ecrã Principal de Sincronização ---
+// --- Tela Principal de Sincronização ---
 class SyncScreen extends StatefulWidget {
   final VoidCallback onLogout;
   const SyncScreen({super.key, required this.onLogout});
@@ -210,18 +200,7 @@ class _SyncScreenState extends State<SyncScreen> {
   String _message = '';
   bool _isError = false;
 
-  // --- LÓGICA DE URL INTELIGENTE ---
-  // Verifica se estamos a correr na web ou num dispositivo mobile
-  // e escolhe o URL correto para a API.
-  String getApiUrl() {
-    if (kIsWeb) {
-      // Quando a correr no Chrome, usamos localhost
-      return 'https://dinareli.pythonanywhere.com/sync';
-    } else {
-      // Quando a correr no Emulador Android, usamos o endereço especial
-      return 'http://10.0.2.2:5001/sync';
-    }
-  }
+  final String _apiUrl = 'https://projeto-skoob-automator.onrender.com/sync';
 
   Future<void> _handleSync() async {
     if (_bookTitleController.text.isEmpty) {
@@ -244,7 +223,7 @@ class _SyncScreenState extends State<SyncScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse(getApiUrl()), // Usamos a nossa nova função inteligente
+        Uri.parse(_apiUrl),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'skoob_user': skoobUser,
