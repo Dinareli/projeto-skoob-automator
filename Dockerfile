@@ -1,19 +1,19 @@
-FROM zenika/python:3.11
+FROM mcr.microsoft.com/playwright/python:v1.43.1-focal
 
-# Criar diretório de trabalho
+# Define o diretório de trabalho
 WORKDIR /app
 
-# Copiar dependências
+# Copia dependências
 COPY backend/requirements.txt .
 
-# Instalar dependências Python
+# Instala dependências
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar todo o código da API
+# Copia a aplicação
 COPY backend/ .
 
-# Expor porta da API Flask
+# Expõe a porta
 EXPOSE 5000
 
-# Rodar a API com gunicorn
+# Executa a API com gunicorn
 CMD ["gunicorn", "-b", "0.0.0.0:5000", "api:app"]
