@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_service.dart'; // Importa nosso novo serviço de API
 
 // --- Ponto de Entrada da Aplicação ---
 void main() {
@@ -68,9 +69,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
       _hasCredentials = true;
     });
   }
-  
+
   void _onLogout() {
-     setState(() {
+    setState(() {
       _hasCredentials = false;
     });
   }
@@ -120,9 +121,9 @@ class _LoginScreenState extends State<LoginScreen> {
     await prefs.setString('skoob_user', _skoobUserController.text);
     await prefs.setString('skoob_pass', _skoobPassController.text);
     await prefs.setString('readwise_token', _readwiseTokenController.text);
-    
+
     setState(() => _isSaving = false);
-    
+
     widget.onLoginSuccess();
   }
 
@@ -183,7 +184,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-
 // --- Tela Principal de Sincronização ---
 class SyncScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -200,7 +200,8 @@ class _SyncScreenState extends State<SyncScreen> {
   String _message = '';
   bool _isError = false;
 
-  final String _apiUrl = 'https://projeto-skoob-automator.onrender.com/sync';
+  // Instância do nosso serviço de API
+  final ApiService _apiService = ApiService();
 
   Future<void> _handleSync() async {
     if (_bookTitleController.text.isEmpty) {
@@ -216,37 +217,30 @@ class _SyncScreenState extends State<SyncScreen> {
       _message = '';
     });
 
-    final prefs = await SharedPreferences.getInstance();
-    final skoobUser = prefs.getString('skoob_user');
-    final skoobPass = prefs.getString('skoob_pass');
-    final readwiseToken = prefs.getString('readwise_token');
-
     try {
-      final response = await http.post(
-        Uri.parse(_apiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'skoob_user': skoobUser,
-          'skoob_pass': skoobPass,
-          'readwise_token': readwiseToken,
-          'book_title': _bookTitleController.text,
-          'status_id': _selectedStatusId,
-        }),
+      final prefs = await SharedPreferences.getInstance();
+      final skoobUser = prefs.getString('skoob_user');
+      final skoobPass = prefs.getString('skoob_pass');
+      final readwiseToken = prefs.getString('readwise_token');
+
+      // Delega a chamada de rede para o ApiService
+      final successMessage = await _apiService.syncSkoobProgress(
+        skoobUser: skoobUser,
+        skoobPass: skoobPass,
+        readwiseToken: readwiseToken,
+        bookTitle: _bookTitleController.text,
+        statusId: _selectedStatusId,
       );
+      
+      setState(() {
+        _message = successMessage;
+        _isError = false;
+      });
 
-      final result = json.decode(response.body);
-
-      if (response.statusCode == 200 && result['status'] == 'success') {
-        setState(() {
-          _message = result['message'];
-          _isError = false;
-        });
-      } else {
-        throw Exception(result['message'] ?? 'Ocorreu um erro desconhecido.');
-      }
     } catch (e) {
       setState(() {
-        _message = 'Erro: ${e.toString()}';
+        // A mensagem de erro já vem tratada do ApiService.
+        _message = e.toString();
         _isError = true;
       });
     } finally {

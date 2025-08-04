@@ -42,4 +42,4 @@ COPY backend/ .
 EXPOSE 5000
 
 # Inicia a API (Railway detecta o Procfile, mas o CMD funciona como fallback)
-CMD ["gunicorn", "-b", "0.0.0.0:5000", "api:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "--timeout", "120", "api:app"]
