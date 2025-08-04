@@ -164,7 +164,7 @@ def update_progress_via_ui(cookies, skoob_details, page, comment):
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options, use_subprocess=True, version_main=114)
+    driver = uc.Chrome(options=options, use_subprocess=True)
     try:
         driver.get("https://www.skoob.com.br/login/0/")
         for name, value in cookies.items():
