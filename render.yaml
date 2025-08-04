@@ -3,8 +3,17 @@ services:
     name: skoob-sync-api
     runtime: python
     rootDir: backend 
-    buildCommand: "chmod +x build.sh && ./build.sh"
+    buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn api:app"
+    plan: free
     envVars:
+      - key: GOOGLE_CHROME_BIN
+        value: /usr/bin/google-chrome
+      - key: CHROME_DRIVER_PATH
+        value: /usr/bin/chromedriver
       - key: PYTHON_VERSION
         value: 3.11.4 
+build:
+  buildpacks:
+    - url: https://github.com/heroku/heroku-buildpack-google-chrome
+    - url: https://github.com/heroku/heroku-buildpack-chromedriver
