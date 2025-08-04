@@ -10,11 +10,13 @@ import time
 import re
 import json
 import urllib.parse
-
-# --- INICIALIZAÇÃO DA API ---
+from flask import jsonify, request
 from flask_cors import CORS
 
+app = Flask(__name__) 
+
 CORS(app, resources={r"/*": {"origins": "*"}}) 
+
 
 def get_latest_progress_from_readwise(book_title, readwise_token):
     print(f"-> Buscando progresso para '{book_title}' no Readwise...")
