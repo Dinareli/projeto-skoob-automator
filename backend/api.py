@@ -60,6 +60,8 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
         return {"error": f"Falha ao comunicar com a API do Readwise: {e}"}
 
 def get_session_cookies(user, password):
+    # Mensagem de diagnóstico para sabermos qual versão está a ser executada
+    print("-> EXECUTANDO VERSÃO COM JAVASCRIPT CLICK (v3) <---")
     print("-> Iniciando sessão remota no Browserless.io para login...")
     api_token = os.getenv('BROWSERLESS_API_TOKEN')
     if not api_token:
@@ -80,16 +82,22 @@ def get_session_cookies(user, password):
         print("-> Conectado! Navegando para o Skoob...")
         driver.get("https://www.skoob.com.br/login/")
         
-        # --- INÍCIO DA CORREÇÃO ---
-        # Usa os IDs corretos ('email' e 'senha') para encontrar os campos
+        print("-> Preenchendo campo de email...")
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
+        
+        print("-> Preenchendo campo de senha...")
         driver.find_element(By.ID, "senha").send_keys(password)
         
-        # Encontra o botão de login pelo seu XPATH e clica nele
+        print("-> Encontrando o botão de login...")
         login_button = driver.find_element(By.XPATH, '//*[@id="login-form"]/div[4]/button')
-        login_button.click()
+        
+        # --- INÍCIO DA CORREÇÃO ---
+        # Usando JavaScript para clicar no botão, que é mais robusto em ambientes remotos
+        print("-> Clicando no botão de login via JavaScript...")
+        driver.execute_script("arguments[0].click();", login_button)
         # --- FIM DA CORREÇÃO ---
         
+        print("-> Aguardando o redirecionamento após o login...")
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
         
         print("-> Login no Skoob bem-sucedido. Capturando cookies...")
