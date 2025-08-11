@@ -74,7 +74,7 @@ def get_session_cookies(user, password):
     options.add_argument('--disable-dev-shm-usage')
     
     # Conecta-se ao servidor remoto do Browserless em vez de rodar localmente
-    browserless_url = f"https://chrome.browserless.io/webdriver?token={api_token}"
+    browserless_url = f"wss://production-sfo.browserless.io?token={api_token}"
     driver = None
     try:
         driver = webdriver.Remote(
