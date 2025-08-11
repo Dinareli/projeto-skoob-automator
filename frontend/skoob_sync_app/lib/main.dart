@@ -18,9 +18,7 @@ class SkoobSyncApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         fontFamily: 'Inter',
         inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.0),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
         ),
       ),
       debugShowCheckedModeBanner: false,
@@ -52,8 +50,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final user = prefs.getString('skoob_user');
     final pass = prefs.getString('skoob_pass');
 
-    if (token != null && user != null && pass != null && 
-        token.isNotEmpty && user.isNotEmpty && pass.isNotEmpty) {
+    if (token != null &&
+        user != null &&
+        pass != null &&
+        token.isNotEmpty &&
+        user.isNotEmpty &&
+        pass.isNotEmpty) {
       setState(() => _hasCredentials = true);
     }
 
@@ -118,11 +120,15 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.all(32.0),
           child: Column(
             children: [
-              const Text('Bem-vinda',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              const Text(
+                'Bem-vinda',
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
-              const Text('Insira as suas credenciais para começar.',
-                  style: TextStyle(fontSize: 16, color: Colors.grey)),
+              const Text(
+                'Insira as suas credenciais para começar.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
               const SizedBox(height: 48),
               TextField(
                 controller: _skoobUserController,
@@ -137,8 +143,9 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _readwiseTokenController,
-                decoration:
-                    const InputDecoration(labelText: 'Token do Readwise'),
+                decoration: const InputDecoration(
+                  labelText: 'Token do Readwise',
+                ),
               ),
               const SizedBox(height: 32),
               ElevatedButton(
@@ -185,7 +192,12 @@ class _SyncScreenState extends State<SyncScreen> {
     final bookTitle = _bookTitleController.text.trim();
 
     // Validação antes da chamada
-    if ([skoobUser, skoobPass, readwiseToken, bookTitle].any((v) => v.isEmpty)) {
+    if ([
+      skoobUser,
+      skoobPass,
+      readwiseToken,
+      bookTitle,
+    ].any((v) => v.isEmpty)) {
       setState(() {
         _message = 'Todos os campos e credenciais são obrigatórios.';
         _isError = true;
@@ -230,7 +242,7 @@ class _SyncScreenState extends State<SyncScreen> {
       appBar: AppBar(
         title: const Text('Skoob Sync'),
         actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout)
+          IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
         ],
       ),
       body: SingleChildScrollView(
@@ -239,8 +251,7 @@ class _SyncScreenState extends State<SyncScreen> {
           children: [
             TextField(
               controller: _bookTitleController,
-              decoration:
-                  const InputDecoration(labelText: 'Título do Livro'),
+              decoration: const InputDecoration(labelText: 'Título do Livro'),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
@@ -260,18 +271,18 @@ class _SyncScreenState extends State<SyncScreen> {
               icon: _isLoading
                   ? const SizedBox.shrink()
                   : const Icon(Icons.sync),
-              label: Text(_isLoading ? 'Sincronizando...' : 'Sincronizar Agora'),
+              label: Text(
+                _isLoading ? 'Sincronizando...' : 'Sincronizar Agora',
+              ),
             ),
             if (_message.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 16.0),
                 child: Text(
                   _message,
-                  style: TextStyle(
-                    color: _isError ? Colors.red : Colors.green,
-                  ),
+                  style: TextStyle(color: _isError ? Colors.red : Colors.green),
                 ),
-              )
+              ),
           ],
         ),
       ),

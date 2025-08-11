@@ -23,10 +23,18 @@ class ApiService {
     print("🔍 Enviando para API: $body"); // Debug
 
     final response = await http.post(
-      Uri.parse('$baseUrl/sync'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
+  Uri.parse('https://projeto-skoob-automator-production.up.railway.app/sync'),
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  },
+  body: {
+    'skoob_user': skoobUser,
+    'skoob_pass': skoobPass,
+    'readwise_token': readwiseToken,
+    'book_title': bookTitle,
+    'status_id': statusId.toString(),
+  },
+);
 
     print("📡 Status: ${response.statusCode}");
     print("📦 Resposta: ${response.body}");
