@@ -4,7 +4,6 @@ import re
 import time
 import urllib.parse
 import requests
-import subprocess
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -82,16 +81,15 @@ def get_session_cookies(user, password):
         driver.get("https://www.skoob.com.br/login/")
         
         # --- INÍCIO DA CORREÇÃO ---
-        # Preenche os campos de usuário e senha
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "UsuarioEmail"))).send_keys(user)
-        driver.find_element(By.ID, "UsuarioSenha").send_keys(password)
+        # Usa os IDs corretos ('email' e 'senha') para encontrar os campos
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
+        driver.find_element(By.ID, "senha").send_keys(password)
         
-        # Encontra o botão de login pelo seu XPATH e clica nele diretamente
+        # Encontra o botão de login pelo seu XPATH e clica nele
         login_button = driver.find_element(By.XPATH, '//*[@id="login-form"]/div[4]/button')
         login_button.click()
         # --- FIM DA CORREÇÃO ---
         
-        # Espera por um elemento que só aparece após o login bem-sucedido
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
         
         print("-> Login no Skoob bem-sucedido. Capturando cookies...")
