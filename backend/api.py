@@ -71,7 +71,6 @@ def get_session_cookies(user, password):
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     
-    # URL correta para o WebDriver do Selenium
     browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
     
     driver = None
@@ -82,12 +81,17 @@ def get_session_cookies(user, password):
         print("-> Conectado! Navegando para o Skoob...")
         driver.get("https://www.skoob.com.br/login/")
         
-        # Usando os IDs corretos do formulário de login do Skoob
+        # --- INÍCIO DA CORREÇÃO ---
+        # Preenche os campos de usuário e senha
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "UsuarioEmail"))).send_keys(user)
-        senha_field = driver.find_element(By.ID, "UsuarioSenha")
-        senha_field.send_keys(password)
-        senha_field.submit()
+        driver.find_element(By.ID, "UsuarioSenha").send_keys(password)
         
+        # Encontra o botão de login pelo seu XPATH e clica nele diretamente
+        login_button = driver.find_element(By.XPATH, '//*[@id="login-form"]/div[4]/button')
+        login_button.click()
+        # --- FIM DA CORREÇÃO ---
+        
+        # Espera por um elemento que só aparece após o login bem-sucedido
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
         
         print("-> Login no Skoob bem-sucedido. Capturando cookies...")
