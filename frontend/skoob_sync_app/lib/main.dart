@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'api_service.dart'; // Importa nosso serviço de API
+import 'api_service.dart';
 
-// --- Ponto de Entrada da Aplicação ---
 void main() {
   runApp(const SkoobSyncApp());
 }
 
-// --- Widget Principal da Aplicação ---
 class SkoobSyncApp extends StatelessWidget {
   const SkoobSyncApp({super.key});
 
@@ -33,7 +29,6 @@ class SkoobSyncApp extends StatelessWidget {
   }
 }
 
-// --- Widget de Controle de Autenticação ---
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
@@ -54,26 +49,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _checkCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('readwise_token');
-    if (token != null && token.isNotEmpty) {
-      setState(() {
-        _hasCredentials = true;
-      });
+    if (token != null && token.trim().isNotEmpty) {
+      _hasCredentials = true;
     }
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
   }
 
   void _onLoginSuccess() {
-    setState(() {
-      _hasCredentials = true;
-    });
+    setState(() => _hasCredentials = true);
   }
 
   void _onLogout() {
-    setState(() {
-      _hasCredentials = false;
-    });
+    setState(() => _hasCredentials = false);
   }
 
   @override
@@ -81,16 +68,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (_hasCredentials) {
-      return SyncScreen(onLogout: _onLogout);
-    } else {
-      return LoginScreen(onLoginSuccess: _onLoginSuccess);
-    }
+    return _hasCredentials
+        ? SyncScreen(onLogout: _onLogout)
+        : LoginScreen(onLoginSuccess: _onLoginSuccess);
   }
 }
 
-
-// --- Tela de Login ---
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
   const LoginScreen({super.key, required this.onLoginSuccess});
@@ -106,9 +89,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSaving = false;
 
   Future<void> _saveCredentials() async {
-    if (_skoobUserController.text.isEmpty ||
-        _skoobPassController.text.isEmpty ||
-        _readwiseTokenController.text.isEmpty) {
+    if (_skoobUserController.text.trim().isEmpty ||
+        _skoobPassController.text.trim().isEmpty ||
+        _readwiseTokenController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, preencha todos os campos.')),
       );
@@ -118,12 +101,11 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isSaving = true);
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('skoob_user', _skoobUserController.text);
-    await prefs.setString('skoob_pass', _skoobPassController.text);
-    await prefs.setString('readwise_token', _readwiseTokenController.text);
+    await prefs.setString('skoob_user', _skoobUserController.text.trim());
+    await prefs.setString('skoob_pass', _skoobPassController.text.trim());
+    await prefs.setString('readwise_token', _readwiseTokenController.text.trim());
 
     setState(() => _isSaving = false);
-
     widget.onLoginSuccess();
   }
 
@@ -134,7 +116,6 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
@@ -184,7 +165,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- Tela Principal de Sincronização ---
 class SyncScreen extends StatefulWidget {
   final VoidCallback onLogout;
   const SyncScreen({super.key, required this.onLogout});
@@ -195,18 +175,30 @@ class SyncScreen extends StatefulWidget {
 
 class _SyncScreenState extends State<SyncScreen> {
   final _bookTitleController = TextEditingController();
-  int _selectedStatusId = 2; // 'Lendo' por defeito
+  int _selectedStatusId = 2;
   bool _isLoading = false;
   String _message = '';
   bool _isError = false;
 
-  // Instância do nosso serviço de API
   final ApiService _apiService = ApiService();
 
   Future<void> _handleSync() async {
-    if (_bookTitleController.text.isEmpty) {
+    if (_bookTitleController.text.trim().isEmpty) {
       setState(() {
         _message = 'Por favor, insira o título do livro.';
+        _isError = true;
+      });
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final skoobUser = prefs.getString('skoob_user') ?? '';
+    final skoobPass = prefs.getString('skoob_pass') ?? '';
+    final readwiseToken = prefs.getString('readwise_token') ?? '';
+
+    if ([skoobUser, skoobPass, readwiseToken].any((v) => v.trim().isEmpty)) {
+      setState(() {
+        _message = 'Credenciais incompletas. Faça login novamente.';
         _isError = true;
       });
       return;
@@ -218,38 +210,36 @@ class _SyncScreenState extends State<SyncScreen> {
     });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final skoobUser = prefs.getString('skoob_user');
-      final skoobPass = prefs.getString('skoob_pass');
-      final readwiseToken = prefs.getString('readwise_token');
+      print('📦 Enviando para API: {'
+          'skoob_user: $skoobUser, '
+          'skoob_pass: $skoobPass, '
+          'readwise_token: $readwiseToken, '
+          'book_title: ${_bookTitleController.text.trim()}, '
+          'status_id: $_selectedStatusId'
+          '}');
 
-      // Delega a chamada de rede para o ApiService
       final successMessage = await _apiService.syncSkoobProgress(
         skoobUser: skoobUser,
         skoobPass: skoobPass,
         readwiseToken: readwiseToken,
-        bookTitle: _bookTitleController.text,
+        bookTitle: _bookTitleController.text.trim(),
         statusId: _selectedStatusId,
       );
-      
+
       setState(() {
         _message = successMessage;
         _isError = false;
       });
-
     } catch (e) {
       setState(() {
-        // A mensagem de erro já vem tratada do ApiService.
         _message = e.toString();
         _isError = true;
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
-  
+
   Future<void> _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -301,9 +291,7 @@ class _SyncScreenState extends State<SyncScreen> {
               ],
               onChanged: (value) {
                 if (value != null) {
-                  setState(() {
-                    _selectedStatusId = value;
-                  });
+                  setState(() => _selectedStatusId = value);
                 }
               },
             ),
