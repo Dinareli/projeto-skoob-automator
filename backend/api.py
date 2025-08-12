@@ -10,12 +10,12 @@ from flask_cors import CORS
 
 # --- CONFIGURAÇÃO INICIAL DA API ---
 app = Flask(__name__)
+# Esta linha é crucial e já deve resolver o problema de CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- FUNÇÕES AUXILIARES ---
 
 def get_latest_progress_from_readwise(book_title, readwise_token):
-    # (Esta função continua igual, pois já usa requisições diretas)
     print(f"-> Buscando progresso para '{book_title}' no Readwise...")
     headers = {"Authorization": f"Token {readwise_token}"}
     books_url = "https://readwise.io/api/v2/books/"
@@ -58,18 +58,16 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
 
 def get_session_cookies(user, password):
     """
-    NOVA VERSÃO: Faz o login diretamente via requisição HTTP, sem usar Selenium.
+    VERSÃO FINAL: Faz o login diretamente via requisição HTTP.
     """
     print("-> EXECUTANDO LOGIN DIRETO VIA REQUISIÇÃO HTTP (v6) <---")
     login_url = "https://www.skoob.com.br/login/0/"
     
-    # Este é o "payload" que o formulário do Skoob envia.
     payload = {
         'data[Usuario][email]': user,
         'data[Usuario][senha]': password,
     }
     
-    # Usamos uma sessão para que os cookies sejam guardados automaticamente.
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -80,7 +78,6 @@ def get_session_cookies(user, password):
         response = session.post(login_url, data=payload)
         response.raise_for_status()
 
-        # O Skoob redireciona em caso de sucesso. Se a URL final não for a home, o login falhou.
         if "login" in response.url:
             raise Exception("Credenciais inválidas ou falha no login.")
         
@@ -106,9 +103,6 @@ def get_session_cookies(user, password):
     except Exception as e:
         return {"error": str(e)}
 
-# (O resto das suas funções, como find_skoob_book_details, etc., continua igual,
-# pois elas já usavam 'requests' e não 'selenium')
-# ... (Cole o resto das suas funções aqui)
 def find_skoob_book_details(session_cookies, book_title, book_author):
     print(f"-> Pesquisando por '{book_title}' de '{book_author}' no Skoob...")
     search_url = "https://www.skoob.com.br/livro/lista/"
@@ -166,24 +160,16 @@ def update_skoob_book(session_cookies, user_id, skoob_details, new_status_id, cu
         except requests.exceptions.RequestException as e:
             return {"error": f"Falha ao comunicar com a API do Skoob: {e}"}
 
-    # A publicação de progresso via UI precisa de ser reavaliada.
-    # Por agora, vamos focar-nos em fazer o login e a atualização de estado funcionarem.
     if new_status_id in [2, 4] and current_page > 0:
         print(f"-> A publicação de progresso detalhado (página e comentário) ainda não está implementada nesta versão.")
-        # A função update_progress_via_ui() foi removida, pois dependia do Selenium.
 
     return {"success": "O livro foi atualizado no Skoob."}
-
-# A função update_progress_via_ui foi removida, pois já não usamos Selenium para isso.
 
 # --- ROTAS DA API ---
 
 @app.route('/')
 def home():
     return "Olá! A API do Automatizador de Skoob está no ar!"
-
-# O endpoint /verify-login já não é necessário, pois o login é rápido e direto.
-# A verificação acontece dentro da própria função /sync.
 
 @app.route('/sync', methods=['POST'])
 def sync_skoob():
@@ -202,10 +188,9 @@ def sync_skoob():
     
     main_author = progress_info['author'].split(' and ')[0].split(',')[0].strip()
     
-    # A verificação do login acontece aqui. Se falhar, retorna um erro.
     session_data = get_session_cookies(data['skoob_user'], data['skoob_pass'])
     if 'error' in session_data:
-        return jsonify({"status": "error", "message": session_data['error']}), 401 # Retorna 401 para erro de login
+        return jsonify({"status": "error", "message": session_data['error']}), 401
     
     skoob_cookies = session_data['cookies']
     user_id = session_data['user_id']

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 
-// (O início do arquivo: SkoobSyncApp, AuthWrapper, etc. continua igual)
-// ...
 void main() {
   runApp(const SkoobSyncApp());
 }
@@ -86,8 +84,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 }
 
-
-// --- Tela de Login (MODIFICADA) ---
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
   const LoginScreen({super.key, required this.onLoginSuccess});
@@ -101,12 +97,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _skoobPassController = TextEditingController();
   final _readwiseTokenController = TextEditingController();
   bool _isSaving = false;
-  
-  // Instância do nosso serviço de API
-  final ApiService _apiService = ApiService();
 
-  // --- FUNÇÃO _saveAndVerifyCredentials (MODIFICADA) ---
-  Future<void> _saveAndVerifyCredentials() async {
+  // Esta função apenas salva os dados localmente, sem verificar.
+  Future<void> _saveCredentials() async {
     if (_skoobUserController.text.isEmpty ||
         _skoobPassController.text.isEmpty ||
         _readwiseTokenController.text.isEmpty) {
@@ -118,34 +111,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isSaving = true);
 
-    try {
-      // 1. Tenta verificar as credenciais do Skoob primeiro
-      await _apiService.verifySkoobLogin(
-        skoobUser: _skoobUserController.text,
-        skoobPass: _skoobPassController.text,
-      );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('skoob_user', _skoobUserController.text);
+    await prefs.setString('skoob_pass', _skoobPassController.text);
+    await prefs.setString('readwise_token', _readwiseTokenController.text);
 
-      // 2. Se a verificação for bem-sucedida, salva as credenciais
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('skoob_user', _skoobUserController.text);
-      await prefs.setString('skoob_pass', _skoobPassController.text);
-      await prefs.setString('readwise_token', _readwiseTokenController.text);
-      
-      // 3. Navega para a próxima tela
-      widget.onLoginSuccess();
+    setState(() => _isSaving = false);
 
-    } catch (e) {
-      // Se a verificação falhar, mostra o erro
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro na verificação: ${e.toString().replaceAll('Exception: ', '')}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      // Para o indicador de carregamento em qualquer caso
-      setState(() => _isSaving = false);
-    }
+    widget.onLoginSuccess();
   }
 
   @override
@@ -188,15 +161,14 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 32),
               ElevatedButton(
-                // Chama a nova função _saveAndVerifyCredentials
-                onPressed: _isSaving ? null : _saveAndVerifyCredentials,
+                onPressed: _isSaving ? null : _saveCredentials,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Verificar e Continuar', style: TextStyle(fontSize: 16)),
+                    : const Text('Salvar e Continuar', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
@@ -206,8 +178,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// (O resto do arquivo, SyncScreen, etc., continua igual)
-// ...
 class SyncScreen extends StatefulWidget {
   final VoidCallback onLogout;
   const SyncScreen({super.key, required this.onLogout});
@@ -218,7 +188,7 @@ class SyncScreen extends StatefulWidget {
 
 class _SyncScreenState extends State<SyncScreen> {
   final _bookTitleController = TextEditingController();
-  int _selectedStatusId = 2; // 'Lendo' por defeito
+  int _selectedStatusId = 2;
   bool _isLoading = false;
   String _message = '';
   bool _isError = false;
