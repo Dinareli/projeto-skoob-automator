@@ -8,11 +8,6 @@ import logging
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 # --- CONFIGURAÇÃO INICIAL DO LOGGING ---
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -67,76 +62,45 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
         return {"error": f"Falha ao comunicar com a API do Readwise: {e}"}
 
 def get_session_cookies(user, password):
-    logging.info("EXECUTANDO LOGIN COM CAPABILITIES EXPLÍCITAS (v14)")
-    api_token = os.getenv('BROWSERLESS_API_TOKEN')
-    if not api_token:
-        logging.error("Token da API do Browserless não configurado.")
-        return {"error": "Token da API do Browserless não configurado no servidor."}
-
-    browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
+    """
+    NOVA VERSÃO: Delega o login para o micro-serviço na Vercel.
+    """
+    logging.info("-> Delegando login para o micro-serviço na Vercel...")
+    # A URL do seu novo serviço de login
+    vercel_login_url = "https://skoob-login-service.vercel.app/api/login"
     
-    # --- INÍCIO DA CORREÇÃO ---
-    # Construímos as 'capabilities' manualmente para máxima compatibilidade.
-    capabilities = DesiredCapabilities.CHROME.copy()
-    capabilities['goog:chromeOptions'] = {
-        'args': [
-            '--headless',
-            '--no-sandbox',
-            '--disable-dev-shm-usage',
-            '--window-size=1280,720'
-        ]
+    payload = {
+        "skoob_user": user,
+        "skoob_pass": password
     }
-    # --- FIM DA CORREÇÃO ---
     
-    driver = None
     try:
-        logging.info(f"Conectando ao endpoint: {browserless_url}")
-        # Usamos o dicionário 'capabilities' que acabámos de criar.
-        driver = webdriver.Remote(
-            command_executor=browserless_url,
-            desired_capabilities=capabilities
-        )
+        # Faz um pedido POST para o serviço, com um timeout de 45 segundos
+        response = requests.post(vercel_login_url, json=payload, timeout=45)
+        
+        # Verifica se o pedido foi bem-sucedido (códigos 2xx)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        if data.get("status") == "success":
+            logging.info("-> Login via Vercel bem-sucedido.")
+            return {
+                "cookies": data.get("cookies"),
+                "user_id": data.get("user_id")
+            }
+        else:
+            # Se o serviço Vercel retornou um erro, passa-o para a frente
+            error_message = data.get('message', 'Erro desconhecido do serviço de login.')
+            logging.error(f"-> Micro-serviço Vercel retornou um erro: {error_message}")
+            return {"error": error_message}
 
-        logging.info("Conectado! Navegando para o Skoob...")
-        driver.get("https://www.skoob.com.br/login/")
-        
-        logging.info("Preenchendo credenciais...")
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
-        driver.find_element(By.ID, "senha").send_keys(password)
-        
-        logging.info("Submetendo o formulário de login...")
-        login_form = driver.find_element(By.ID, "login-form")
-        login_form.submit()
-        
-        logging.info("Aguardando o redirecionamento após o login...")
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
-        
-        logging.info("Login no Skoob bem-sucedido. Capturando cookies...")
-        cookies = driver.get_cookies()
-        
-        user_id = None
-        for cookie in cookies:
-            if cookie['name'] == 'CakeCookie[Skoob]':
-                try:
-                    decoded_cookie = urllib.parse.unquote(cookie['value'])
-                    cookie_json = json.loads(decoded_cookie)
-                    user_id = cookie_json.get('usuario', {}).get('id')
-                    break
-                except json.JSONDecodeError:
-                    logging.warning("Falha ao decodificar o cookie do Skoob.")
-                    continue
-        
-        return {"cookies": {c['name']: c['value'] for c in cookies}, "user_id": user_id}
-
-    except Exception as e:
-        logging.error(f"Erro detalhado do Selenium/Browserless: {str(e)}")
-        return {"error": f"Falha ao executar automação no Browserless: {e}"}
-    finally:
-        if driver:
-            driver.quit()
-        logging.info("Sessão remota de login fechada.")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"-> Falha ao comunicar com o micro-serviço Vercel: {e}")
+        return {"error": f"Não foi possível conectar ao serviço de login: {e}"}
 
 def find_skoob_book_details(session_cookies, book_title, book_author):
+    # (Esta função continua igual)
     logging.info(f"Pesquisando por '{book_title}' de '{book_author}' no Skoob...")
     search_url = "https://www.skoob.com.br/livro/lista/"
     payload = {'data[Busca][tag]': book_title}
@@ -165,6 +129,7 @@ def find_skoob_book_details(session_cookies, book_title, book_author):
         return {"error": f"Falha ao pesquisar no Skoob: {e}"}
 
 def get_current_book_status(session_cookies, user_id, edition_id):
+    # (Esta função continua igual)
     logging.info(f"Verificando estado atual do livro (Edição ID: {edition_id})...")
     status_url = f"https://www.skoob.com.br/v1/book/{edition_id}/user_id:{user_id}/statstrue/"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
@@ -180,6 +145,7 @@ def get_current_book_status(session_cookies, user_id, edition_id):
         return None 
 
 def update_skoob_book(session_cookies, user_id, skoob_details, new_status_id, current_page=0, comment=""):
+    # (Esta função continua igual, mas a publicação de progresso detalhado foi removida)
     status_map = {1: "Lido", 2: "Lendo", 3: "Quero ler", 4: "Relendo", 5: "Abandonei"}
     
     current_status = get_current_book_status(session_cookies, user_id, skoob_details['edition_id'])
@@ -196,60 +162,9 @@ def update_skoob_book(session_cookies, user_id, skoob_details, new_status_id, cu
             return {"error": f"Falha ao comunicar com a API do Skoob: {e}"}
 
     if new_status_id in [2, 4] and current_page > 0:
-        logging.info("(UI) Abrindo navegador para publicar progresso...")
-        try:
-            update_progress_via_ui(session_cookies, skoob_details, current_page, comment)
-        except Exception as e:
-            logging.error(f"Falha ao publicar o progresso: {e}")
-            return {"error": f"Falha ao publicar o progresso: {e}"}
+        logging.warning("A publicação de progresso detalhado (página e comentário) foi removida nesta arquitetura simplificada.")
 
     return {"success": "O livro foi atualizado no Skoob."}
-
-def update_progress_via_ui(cookies, skoob_details, page, comment):
-    logging.info("Iniciando sessão remota no Browserless.io para atualizar progresso...")
-    api_token = os.getenv('BROWSERLESS_API_TOKEN')
-    if not api_token:
-        raise Exception("Token da API do Browserless não configurado no servidor.")
-
-    browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
-    
-    capabilities = DesiredCapabilities.CHROME.copy()
-    capabilities['goog:chromeOptions'] = {
-        'args': [
-            '--headless',
-            '--no-sandbox',
-            '--disable-dev-shm-usage',
-            '--window-size=1280,720'
-        ]
-    }
-    
-    driver = None
-    try:
-        driver = webdriver.Remote(
-            command_executor=browserless_url,
-            desired_capabilities=capabilities
-        )
-        
-        driver.get("https://www.skoob.com.br/")
-        for name, value in cookies.items():
-            driver.add_cookie({'name': name, 'value': value})
-            
-        history_url = f"https://www.skoob.com.br/estante/s_historico_leitura/{skoob_details['edition_id']}"
-        driver.get(history_url)
-        
-        page_input = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "LendoHistoricoPaginas")))
-        page_input.send_keys(str(page))
-        
-        driver.find_element(By.ID, "LendoHistoricoTexto").send_keys(comment)
-        driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Gravar histórico de leitura']").click()
-        time.sleep(5)
-    except Exception as e:
-        raise e 
-    finally:
-        if driver:
-            driver.quit()
-        logging.info("Sessão remota de progresso fechada.")
-
 
 # --- ROTAS DA API ---
 
@@ -276,7 +191,7 @@ def sync_skoob():
     if 'error' in progress_info:
         return jsonify({"status": "error", "message": progress_info['error']}), 500
     
-    main_author = progress_info['author'].split(' and ')[0].split(',—')[0].strip()
+    main_author = progress_info['author'].split(' and ')[0].split(',')[0].strip()
     
     session_data = get_session_cookies(data['skoob_user'], data['skoob_pass'])
     if 'error' in session_data:

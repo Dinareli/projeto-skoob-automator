@@ -3,4 +3,3 @@ Flask-Cors
 gunicorn
 requests
 beautifulsoup4
-selenium==3.141.0
