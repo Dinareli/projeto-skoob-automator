@@ -1,37 +1,61 @@
 import 'dart:convert';
-import 'dart:io'; // Para exceções de rede como 'SocketException'
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // URL base da sua API no Railway.
-  static const String _baseUrl =
-      'https://projeto-skoob-automator-production.up.railway.app';
+  static const String _baseUrl = 'https://projeto-skoob-automator-production.up.railway.app';
+
+  /// NOVO: Verifica as credenciais do Skoob.
+  /// Retorna true em caso de sucesso, lança uma exceção em caso de falha.
+  Future<bool> verifySkoobLogin({
+    required String skoobUser,
+    required String skoobPass,
+  }) async {
+    final Uri verifyUri = Uri.parse('$_baseUrl/verify-login');
+    
+    print("-> Verificando credenciais do Skoob...");
+
+    try {
+      final response = await http.post(
+        verifyUri,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode({
+          'skoob_user': skoobUser,
+          'skoob_pass': skoobPass,
+        }),
+      );
+
+      final result = json.decode(utf8.decode(response.bodyBytes));
+      print('Status Code da Verificação: ${response.statusCode}');
+      print('Resposta da Verificação: $result');
+
+      if (response.statusCode == 200 && result['status'] == 'success') {
+        return true;
+      } else {
+        throw Exception(result['message'] ?? 'Credenciais inválidas ou erro desconhecido.');
+      }
+    } on SocketException {
+      throw Exception('Não foi possível conectar ao servidor. Verifique sua internet.');
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 
   /// Envia os dados para a API para sincronizar o progresso do livro.
   Future<String> syncSkoobProgress({
-    required String skoobUser,
-    required String skoobPass,
-    required String readwiseToken,
+    required String? skoobUser,
+    required String? skoobPass,
+    required String? readwiseToken,
     required String bookTitle,
     required int statusId,
   }) async {
-    // Validação antes de enviar
-    if (skoobUser.trim().isEmpty ||
-        skoobPass.trim().isEmpty ||
-        readwiseToken.trim().isEmpty ||
-        bookTitle.trim().isEmpty) {
-      throw Exception(
-          'Todos os campos são obrigatórios. Preencha todas as informações.');
-    }
-
-    // Monta a URL completa, incluindo o endpoint /sync
     final Uri syncUri = Uri.parse('$_baseUrl/sync');
-
+    // ... (o resto desta função continua igual)
     final Map<String, dynamic> body = {
-      'skoob_user': skoobUser.trim(),
-      'skoob_pass': skoobPass.trim(),
-      'readwise_token': readwiseToken.trim(),
-      'book_title': bookTitle.trim(),
+      'skoob_user': skoobUser,
+      'skoob_pass': skoobPass,
+      'readwise_token': readwiseToken,
+      'book_title': bookTitle,
       'status_id': statusId,
     };
 
@@ -42,31 +66,21 @@ class ApiService {
         body: json.encode(body),
       );
 
-      // Usar utf8.decode para garantir que caracteres especiais (acentos) sejam lidos corretamente.
       final result = json.decode(utf8.decode(response.bodyBytes));
-
-      // Imprime no console para facilitar a depuração.
-      print('📡 Status: ${response.statusCode}');
-      print('📦 Resposta: $result');
-      print('🔍 Enviando para API: $body');
+      
+      print('Status Code da Sincronização: ${response.statusCode}');
+      print('Resposta da Sincronização: $result');
 
       if (response.statusCode == 200 && result['status'] == 'success') {
-        return result['message']; // Retorna a mensagem de sucesso da API.
+        return result['message'];
       } else {
-        // Lança um erro com a mensagem de erro vinda da API.
-        throw Exception(result['error'] ??
-            result['message'] ??
-            'Ocorreu um erro desconhecido na API.');
+        throw Exception(result['message'] ?? 'Ocorreu um erro desconhecido na API.');
       }
     } on SocketException {
-      // Erro específico para quando o app não consegue se conectar à internet.
-      throw Exception(
-          'Não foi possível conectar ao servidor. Verifique sua internet.');
+      throw Exception('Não foi possível conectar ao servidor. Verifique sua internet.');
     } catch (e) {
-      // Pega qualquer outro erro (como o de parsing do JSON) e o relança de forma limpa.
       print('Erro capturado no ApiService: $e');
-      throw Exception(
-          e.toString().replaceAll('Exception: ', '').replaceAll('Error: ', ''));
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
 }

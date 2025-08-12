@@ -16,9 +16,60 @@ from selenium.webdriver.support import expected_conditions as EC
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# --- FUNÇÕES AUXILIARES ---
+# --- FUNÇÕES DE VERIFICAÇÃO (NOVO!) ---
+
+def verify_skoob_login(user, password):
+    """
+    Função dedicada apenas para verificar se o login no Skoob é bem-sucedido.
+    Retorna True em caso de sucesso, ou uma mensagem de erro em caso de falha.
+    """
+    print("-> EXECUTANDO VERIFICAÇÃO DE LOGIN (v4) <---")
+    api_token = os.getenv('BROWSERLESS_API_TOKEN')
+    if not api_token:
+        return "Token da API do Browserless não configurado no servidor."
+
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    
+    browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
+    driver = None
+    try:
+        print(f"-> [Verificação] Conectando a: {browserless_url}")
+        driver = webdriver.Remote(command_executor=browserless_url, options=options)
+        driver.get("https://www.skoob.com.br/login/")
+        
+        print("-> [Verificação] Preenchendo credenciais...")
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
+        driver.find_element(By.ID, "senha").send_keys(password)
+        
+        print("-> [Verificação] Clicando no botão de login...")
+        login_button = driver.find_element(By.XPATH, '//*[@id="login-form"]/div[4]/button')
+        driver.execute_script("arguments[0].click();", login_button)
+        
+        print("-> [Verificação] Aguardando resultado do login...")
+        # Esperamos por um elemento que só existe se o login for bem-sucedido
+        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
+        
+        print("-> [Verificação] Login bem-sucedido!")
+        return True
+
+    except Exception as e:
+        # Se qualquer passo falhar, capturamos o erro.
+        error_message = f"Credenciais inválidas ou falha no Skoob. Erro: {str(e)}"
+        print(f"-> [Verificação] {error_message}")
+        return error_message
+    finally:
+        if driver:
+            driver.quit()
+        print("-> [Verificação] Sessão remota fechada.")
+
+
+# --- FUNÇÕES AUXILIARES (EXISTENTES) ---
 
 def get_latest_progress_from_readwise(book_title, readwise_token):
+    # (Esta função continua igual)
     print(f"-> Buscando progresso para '{book_title}' no Readwise...")
     headers = {"Authorization": f"Token {readwise_token}"}
     books_url = "https://readwise.io/api/v2/books/"
@@ -60,8 +111,7 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
         return {"error": f"Falha ao comunicar com a API do Readwise: {e}"}
 
 def get_session_cookies(user, password):
-    # Mensagem de diagnóstico para sabermos qual versão está a ser executada
-    print("-> EXECUTANDO VERSÃO COM JAVASCRIPT CLICK (v3) <---")
+    # (Esta função continua igual)
     print("-> Iniciando sessão remota no Browserless.io para login...")
     api_token = os.getenv('BROWSERLESS_API_TOKEN')
     if not api_token:
@@ -82,22 +132,12 @@ def get_session_cookies(user, password):
         print("-> Conectado! Navegando para o Skoob...")
         driver.get("https://www.skoob.com.br/login/")
         
-        print("-> Preenchendo campo de email...")
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
-        
-        print("-> Preenchendo campo de senha...")
         driver.find_element(By.ID, "senha").send_keys(password)
         
-        print("-> Encontrando o botão de login...")
         login_button = driver.find_element(By.XPATH, '//*[@id="login-form"]/div[4]/button')
-        
-        # --- INÍCIO DA CORREÇÃO ---
-        # Usando JavaScript para clicar no botão, que é mais robusto em ambientes remotos
-        print("-> Clicando no botão de login via JavaScript...")
         driver.execute_script("arguments[0].click();", login_button)
-        # --- FIM DA CORREÇÃO ---
         
-        print("-> Aguardando o redirecionamento após o login...")
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
         
         print("-> Login no Skoob bem-sucedido. Capturando cookies...")
@@ -125,6 +165,8 @@ def get_session_cookies(user, password):
             driver.quit()
         print("-> Sessão remota de login fechada.")
 
+# ... (O resto das suas funções, como find_skoob_book_details, etc., continua aqui)
+# ... (Cole o resto das suas funções aqui)
 def find_skoob_book_details(session_cookies, book_title, book_author):
     print(f"-> Pesquisando por '{book_title}' de '{book_author}' no Skoob...")
     search_url = "https://www.skoob.com.br/livro/lista/"
@@ -228,13 +270,27 @@ def update_progress_via_ui(cookies, skoob_details, page, comment):
             driver.quit()
         print("-> Sessão remota de progresso fechada.")
 
+# --- ROTAS DA API ---
 
-# --- ROTA DE TESTE ---
 @app.route('/')
 def home():
     return "Olá! A API do Automatizador de Skoob está no ar!"
 
-# --- ENDPOINT PRINCIPAL ---
+# --- NOVO ENDPOINT DE VERIFICAÇÃO ---
+@app.route('/verify-login', methods=['POST'])
+def verify_login_route():
+    data = request.get_json()
+    if not data or 'skoob_user' not in data or 'skoob_pass' not in data:
+        return jsonify({"status": "error", "message": "Email e senha do Skoob são obrigatórios."}), 400
+    
+    result = verify_skoob_login(data['skoob_user'], data['skoob_pass'])
+    
+    if result is True:
+        return jsonify({"status": "success", "message": "Login verificado com sucesso."})
+    else:
+        return jsonify({"status": "error", "message": result}), 401 # 401 Unauthorized é mais apropriado
+
+# --- ENDPOINT PRINCIPAL DE SINCRONIZAÇÃO ---
 @app.route('/sync', methods=['POST'])
 def sync_skoob():
     data = request.get_json()
