@@ -12,6 +12,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 # --- CONFIGURAÇÃO INICIAL DO LOGGING ---
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -66,7 +67,7 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
         return {"error": f"Falha ao comunicar com a API do Readwise: {e}"}
 
 def get_session_cookies(user, password):
-    logging.info("EXECUTANDO LOGIN COM SELENIUM v3 (v13)")
+    logging.info("EXECUTANDO LOGIN COM CAPABILITIES EXPLÍCITAS (v14)")
     api_token = os.getenv('BROWSERLESS_API_TOKEN')
     if not api_token:
         logging.error("Token da API do Browserless não configurado.")
@@ -74,20 +75,26 @@ def get_session_cookies(user, password):
 
     browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
     
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--window-size=1280,720')
+    # --- INÍCIO DA CORREÇÃO ---
+    # Construímos as 'capabilities' manualmente para máxima compatibilidade.
+    capabilities = DesiredCapabilities.CHROME.copy()
+    capabilities['goog:chromeOptions'] = {
+        'args': [
+            '--headless',
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--window-size=1280,720'
+        ]
+    }
+    # --- FIM DA CORREÇÃO ---
     
     driver = None
     try:
         logging.info(f"Conectando ao endpoint: {browserless_url}")
-        # --- CORREÇÃO APLICADA AQUI ---
-        # Usamos 'desired_capabilities' com a conversão de 'options', compatível com Selenium 3
+        # Usamos o dicionário 'capabilities' que acabámos de criar.
         driver = webdriver.Remote(
             command_executor=browserless_url,
-            desired_capabilities=options.to_capabilities()
+            desired_capabilities=capabilities
         )
 
         logging.info("Conectado! Navegando para o Skoob...")
@@ -206,17 +213,21 @@ def update_progress_via_ui(cookies, skoob_details, page, comment):
 
     browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
     
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--window-size=1280,720')
+    capabilities = DesiredCapabilities.CHROME.copy()
+    capabilities['goog:chromeOptions'] = {
+        'args': [
+            '--headless',
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--window-size=1280,720'
+        ]
+    }
     
     driver = None
     try:
         driver = webdriver.Remote(
             command_executor=browserless_url,
-            desired_capabilities=options.to_capabilities()
+            desired_capabilities=capabilities
         )
         
         driver.get("https://www.skoob.com.br/")
@@ -265,7 +276,7 @@ def sync_skoob():
     if 'error' in progress_info:
         return jsonify({"status": "error", "message": progress_info['error']}), 500
     
-    main_author = progress_info['author'].split(' and ')[0].split(',')[0].strip()
+    main_author = progress_info['author'].split(' and ')[0].split(',—')[0].strip()
     
     session_data = get_session_cookies(data['skoob_user'], data['skoob_pass'])
     if 'error' in session_data:
