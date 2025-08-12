@@ -62,7 +62,7 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
 
 def get_session_cookies(user, password):
     # Mensagem de diagnóstico para sabermos qual versão está a ser executada
-    print("-> EXECUTANDO LOGIN COM SUBMISSÃO DE FORMULÁRIO (v7) <---")
+    print("-> EXECUTANDO LOGIN COM MODO DE DEPURAÇÃO (v8) <---")
     api_token = os.getenv('BROWSERLESS_API_TOKEN')
     if not api_token:
         return {"error": "Token da API do Browserless não configurado no servidor."}
@@ -86,12 +86,9 @@ def get_session_cookies(user, password):
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
         driver.find_element(By.ID, "senha").send_keys(password)
         
-        # --- INÍCIO DA CORREÇÃO ---
-        # Encontra o formulário de login pelo seu ID e submete-o diretamente.
         print("-> Submetendo o formulário de login...")
         login_form = driver.find_element(By.ID, "login-form")
         login_form.submit()
-        # --- FIM DA CORREÇÃO ---
         
         print("-> Aguardando o redirecionamento após o login...")
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
@@ -114,6 +111,19 @@ def get_session_cookies(user, password):
         return {"cookies": {c['name']: c['value'] for c in cookies}, "user_id": user_id}
 
     except Exception as e:
+        # --- INÍCIO DA LÓGICA DE DEPURAÇÃO ---
+        print("\n!!! OCORREU UMA EXCEÇÃO DURANTE O LOGIN !!!")
+        if driver:
+            try:
+                # Tenta obter o HTML da página atual para ver o que deu errado
+                page_source_html = driver.page_source
+                print("--- CÓDIGO FONTE DA PÁGINA DE ERRO (INÍCIO) ---")
+                print(page_source_html[:2000]) # Imprime os primeiros 2000 caracteres
+                print("--- CÓDIGO FONTE DA PÁGINA DE ERRO (FIM) ---\n")
+            except Exception as debug_e:
+                print(f"Não foi possível obter o código fonte da página para depuração: {debug_e}")
+        # --- FIM DA LÓGICA DE DEPURAÇÃO ---
+        
         print(f"Erro detalhado do Selenium/Browserless: {str(e)}")
         return {"error": f"Falha ao executar automação no Browserless: {e}"}
     finally:
