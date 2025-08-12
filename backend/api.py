@@ -4,6 +4,7 @@ import re
 import time
 import urllib.parse
 import requests
+import logging
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -11,6 +12,9 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+# --- CONFIGURAÇÃO INICIAL DO LOGGING ---
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- CONFIGURAÇÃO INICIAL DA API ---
 app = Flask(__name__)
@@ -20,7 +24,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 def get_latest_progress_from_readwise(book_title, readwise_token):
     # (Esta função continua igual)
-    print(f"-> Buscando progresso para '{book_title}' no Readwise...")
+    logging.info(f"Buscando progresso para '{book_title}' no Readwise...")
     headers = {"Authorization": f"Token {readwise_token}"}
     books_url = "https://readwise.io/api/v2/books/"
     try:
@@ -37,7 +41,7 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
         
         book_info = found_book
         readwise_book_id = book_info['id']
-        print(f"-> Livro encontrado no Readwise (ID: {readwise_book_id}).")
+        logging.info(f"Livro encontrado no Readwise (ID: {readwise_book_id}).")
 
         highlights_url = "https://readwise.io/api/v2/highlights/"
         response = requests.get(highlights_url, headers=headers, params={'book_id': readwise_book_id, 'page_size': 1})
@@ -58,42 +62,56 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
                 return {"title": book_info['title'], "author": book_info['author'], "progress": progress, "highlight_text": highlight_text}
         return {"title": book_info['title'], "author": book_info['author'], "progress": 0, "highlight_text": highlight_text}
     except requests.exceptions.RequestException as e:
+        logging.error(f"Falha ao comunicar com a API do Readwise: {e}")
         return {"error": f"Falha ao comunicar com a API do Readwise: {e}"}
 
 def get_session_cookies(user, password):
-    # Mensagem de diagnóstico para sabermos qual versão está a ser executada
-    print("-> EXECUTANDO LOGIN COM MODO DE DEPURAÇÃO (v8) <---")
+    logging.info("EXECUTANDO LOGIN COM SCREENSHOT DE DEPURAÇÃO (v10)")
     api_token = os.getenv('BROWSERLESS_API_TOKEN')
     if not api_token:
+        logging.error("Token da API do Browserless não configurado.")
         return {"error": "Token da API do Browserless não configurado no servidor."}
 
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
+    options.add_argument("--window-size=1280,720") # Define um tamanho de janela para o screenshot
     
     browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
     
     driver = None
     try:
-        print(f"-> Conectando ao endpoint: {browserless_url}")
+        logging.info(f"Conectando ao endpoint: {browserless_url}")
         driver = webdriver.Remote(command_executor=browserless_url, options=options)
 
-        print("-> Conectado! Navegando para o Skoob...")
+        logging.info("Conectado! Navegando para o Skoob...")
         driver.get("https://www.skoob.com.br/login/")
         
-        print("-> Preenchendo credenciais...")
+        logging.info("Preenchendo credenciais...")
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
         driver.find_element(By.ID, "senha").send_keys(password)
         
-        print("-> Submetendo o formulário de login...")
+        # --- INÍCIO DA LÓGICA DE DEPURAÇÃO ---
+        logging.info("Tirando screenshot ANTES de submeter o formulário...")
+        try:
+            # Tira o screenshot e obtém os dados como base64
+            screenshot_base64 = driver.get_screenshot_as_base64()
+            logging.debug("--- SCREENSHOT EM BASE64 (INÍCIO) ---")
+            logging.debug(screenshot_base64) # Imprime a string gigante nos logs
+            logging.debug("--- SCREENSHOT EM BASE64 (FIM) ---")
+        except Exception as screenshot_e:
+            logging.error(f"Não foi possível tirar o screenshot: {screenshot_e}")
+        # --- FIM DA LÓGICA DE DEPURAÇÃO ---
+
+        logging.info("Submetendo o formulário de login...")
         login_form = driver.find_element(By.ID, "login-form")
         login_form.submit()
         
-        print("-> Aguardando o redirecionamento após o login...")
+        logging.info("Aguardando o redirecionamento após o login...")
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
         
-        print("-> Login no Skoob bem-sucedido. Capturando cookies...")
+        logging.info("Login no Skoob bem-sucedido. Capturando cookies...")
         cookies = driver.get_cookies()
         
         user_id = None
@@ -105,34 +123,21 @@ def get_session_cookies(user, password):
                     user_id = cookie_json.get('usuario', {}).get('id')
                     break
                 except json.JSONDecodeError:
-                    print("-> Aviso: Falha ao decodificar o cookie do Skoob.")
+                    logging.warning("Falha ao decodificar o cookie do Skoob.")
                     continue
         
         return {"cookies": {c['name']: c['value'] for c in cookies}, "user_id": user_id}
 
     except Exception as e:
-        # --- INÍCIO DA LÓGICA DE DEPURAÇÃO ---
-        print("\n!!! OCORREU UMA EXCEÇÃO DURANTE O LOGIN !!!")
-        if driver:
-            try:
-                # Tenta obter o HTML da página atual para ver o que deu errado
-                page_source_html = driver.page_source
-                print("--- CÓDIGO FONTE DA PÁGINA DE ERRO (INÍCIO) ---")
-                print(page_source_html[:2000]) # Imprime os primeiros 2000 caracteres
-                print("--- CÓDIGO FONTE DA PÁGINA DE ERRO (FIM) ---\n")
-            except Exception as debug_e:
-                print(f"Não foi possível obter o código fonte da página para depuração: {debug_e}")
-        # --- FIM DA LÓGICA DE DEPURAÇÃO ---
-        
-        print(f"Erro detalhado do Selenium/Browserless: {str(e)}")
+        logging.error(f"Erro detalhado do Selenium/Browserless: {str(e)}")
         return {"error": f"Falha ao executar automação no Browserless: {e}"}
     finally:
         if driver:
             driver.quit()
-        print("-> Sessão remota de login fechada.")
+        logging.info("Sessão remota de login fechada.")
 
 def find_skoob_book_details(session_cookies, book_title, book_author):
-    print(f"-> Pesquisando por '{book_title}' de '{book_author}' no Skoob...")
+    logging.info(f"Pesquisando por '{book_title}' de '{book_author}' no Skoob...")
     search_url = "https://www.skoob.com.br/livro/lista/"
     payload = {'data[Busca][tag]': book_title}
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
@@ -148,7 +153,7 @@ def find_skoob_book_details(session_cookies, book_title, book_author):
                 if len(all_links) >= 2:
                     title_tag, author_tag = all_links[0], all_links[1]
                     if " ".join(book_author.lower().split()) in " ".join(author_tag.text.lower().split()):
-                        print("-> Livro correspondente encontrado no Skoob!")
+                        logging.info("Livro correspondente encontrado no Skoob!")
                         url = title_tag['href']
                         match = re.search(r'(\d+)ed(\d+)', url)
                         if match:
@@ -156,10 +161,11 @@ def find_skoob_book_details(session_cookies, book_title, book_author):
                             return {"book_id": book_id, "edition_id": edition_id, "page_url": url}
         return {"error": f"Nenhum resultado correspondente encontrado para '{book_title}' de '{book_author}'."}
     except requests.exceptions.RequestException as e:
+        logging.error(f"Falha ao pesquisar no Skoob: {e}")
         return {"error": f"Falha ao pesquisar no Skoob: {e}"}
 
 def get_current_book_status(session_cookies, user_id, edition_id):
-    print(f"-> Verificando estado atual do livro (Edição ID: {edition_id})...")
+    logging.info(f"Verificando estado atual do livro (Edição ID: {edition_id})...")
     status_url = f"https://www.skoob.com.br/v1/book/{edition_id}/user_id:{user_id}/statstrue/"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
     try:
@@ -167,10 +173,10 @@ def get_current_book_status(session_cookies, user_id, edition_id):
         response.raise_for_status()
         data = response.json()
         current_status = int(data.get('response', {}).get('estante_id', 0))
-        print(f"-> Estado atual encontrado: {current_status}")
+        logging.info(f"Estado atual encontrado: {current_status}")
         return current_status
     except Exception as e:
-        print(f"-> Aviso: Não foi possível verificar o estado atual do livro. Erro: {e}")
+        logging.warning(f"Não foi possível verificar o estado atual do livro. Erro: {e}")
         return None 
 
 def update_skoob_book(session_cookies, user_id, skoob_details, new_status_id, current_page=0, comment=""):
@@ -179,26 +185,28 @@ def update_skoob_book(session_cookies, user_id, skoob_details, new_status_id, cu
     current_status = get_current_book_status(session_cookies, user_id, skoob_details['edition_id'])
     
     if current_status != new_status_id:
-        print(f"-> Atualizando estado para '{status_map.get(new_status_id)}'...")
+        logging.info(f"Atualizando estado para '{status_map.get(new_status_id)}'...")
         update_url = f"https://www.skoob.com.br/v1/shelf_add/{skoob_details['edition_id']}/{new_status_id}/"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 'Referer': 'https://www.skoob.com.br/'}
         try:
             response = requests.get(update_url, cookies=session_cookies, headers=headers)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
+            logging.error(f"Falha ao comunicar com a API do Skoob: {e}")
             return {"error": f"Falha ao comunicar com a API do Skoob: {e}"}
 
     if new_status_id in [2, 4] and current_page > 0:
-        print(f"-> (UI) Abrindo navegador para publicar progresso...")
+        logging.info("(UI) Abrindo navegador para publicar progresso...")
         try:
             update_progress_via_ui(session_cookies, skoob_details, current_page, comment)
         except Exception as e:
+            logging.error(f"Falha ao publicar o progresso: {e}")
             return {"error": f"Falha ao publicar o progresso: {e}"}
 
     return {"success": "O livro foi atualizado no Skoob."}
 
 def update_progress_via_ui(cookies, skoob_details, page, comment):
-    print("-> Iniciando sessão remota no Browserless.io para atualizar progresso...")
+    logging.info("Iniciando sessão remota no Browserless.io para atualizar progresso...")
     api_token = os.getenv('BROWSERLESS_API_TOKEN')
     if not api_token:
         raise Exception("Token da API do Browserless não configurado no servidor.")
@@ -232,24 +240,28 @@ def update_progress_via_ui(cookies, skoob_details, page, comment):
     finally:
         if driver:
             driver.quit()
-        print("-> Sessão remota de progresso fechada.")
+        logging.info("Sessão remota de progresso fechada.")
 
 
 # --- ROTAS DA API ---
 
 @app.route('/')
 def home():
+    logging.info("Rota raiz ('/') foi acessada.")
     return "Olá! A API do Automatizador de Skoob está no ar!"
 
 @app.route('/sync', methods=['POST'])
 def sync_skoob():
+    logging.info("Endpoint '/sync' foi chamado.")
     data = request.get_json()
     if not data:
+        logging.warning("Nenhum dado JSON foi recebido no endpoint /sync.")
         return jsonify({"status": "error", "message": "Nenhum dado enviado."}), 400
     
     required_fields = ['skoob_user', 'skoob_pass', 'readwise_token', 'book_title', 'status_id']
     for field in required_fields:
         if field not in data:
+            logging.warning(f"Campo obrigatório em falta: {field}")
             return jsonify({"status": "error", "message": f"Campo obrigatório em falta: {field}"}), 400
 
     progress_info = get_latest_progress_from_readwise(data['book_title'], data['readwise_token'])
@@ -265,6 +277,7 @@ def sync_skoob():
     skoob_cookies = session_data['cookies']
     user_id = session_data['user_id']
     if not user_id:
+        logging.error("Não foi possível extrair o ID de utilizador do Skoob.")
         return jsonify({"status": "error", "message": "Não foi possível extrair o ID de utilizador do Skoob."}), 500
 
     skoob_book_info = find_skoob_book_details(skoob_cookies, progress_info['title'], main_author)
@@ -282,6 +295,7 @@ def sync_skoob():
     if 'error' in result:
         return jsonify({"status": "error", "message": result['error']}), 500
         
+    logging.info("Sincronização concluída com sucesso!")
     return jsonify({"status": "success", "message": "Sincronização concluída com sucesso!"})
 
 # --- PARA EXECUTAR O SERVIDOR DA API LOCALMENTE ---
