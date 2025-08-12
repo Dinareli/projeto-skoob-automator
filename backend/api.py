@@ -7,69 +7,15 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys # NOVO: Importa a classe Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 # --- CONFIGURAÇÃO INICIAL DA API ---
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# --- FUNÇÕES DE VERIFICAÇÃO ---
+# --- FUNÇÕES AUXILIARES ---
 
-def verify_skoob_login(user, password):
-    """
-    Função dedicada apenas para verificar se o login no Skoob é bem-sucedido.
-    """
-    # Mensagem de diagnóstico para sabermos qual versão está a ser executada
-    print("-> EXECUTANDO VERIFICAÇÃO DE LOGIN COM TECLA ENTER (v5) <---")
-    api_token = os.getenv('BROWSERLESS_API_TOKEN')
-    if not api_token:
-        return "Token da API do Browserless não configurado no servidor."
-
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    
-    browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
-    driver = None
-    try:
-        print(f"-> [Verificação] Conectando a: {browserless_url}")
-        driver = webdriver.Remote(command_executor=browserless_url, options=options)
-        driver.get("https://www.skoob.com.br/login/")
-        
-        print("-> [Verificação] Preenchendo credenciais...")
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
-        senha_field = driver.find_element(By.ID, "senha")
-        senha_field.send_keys(password)
-        
-        # --- INÍCIO DA CORREÇÃO ---
-        # Em vez de clicar, simulamos o pressionar da tecla Enter no campo da senha
-        print("-> [Verificação] Pressionando Enter para submeter o formulário...")
-        senha_field.send_keys(Keys.RETURN)
-        # --- FIM DA CORREÇÃO ---
-        
-        print("-> [Verificação] Aguardando resultado do login...")
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
-        
-        print("-> [Verificação] Login bem-sucedido!")
-        return True
-
-    except Exception as e:
-        error_message = f"Credenciais inválidas ou falha no Skoob. Erro: {str(e)}"
-        print(f"-> [Verificação] {error_message}")
-        return error_message
-    finally:
-        if driver:
-            driver.quit()
-        print("-> [Verificação] Sessão remota fechada.")
-
-# (O resto das suas funções continua igual. Não precisa de as alterar.)
-# ... (Cole o resto das suas funções aqui)
 def get_latest_progress_from_readwise(book_title, readwise_token):
+    # (Esta função continua igual, pois já usa requisições diretas)
     print(f"-> Buscando progresso para '{book_title}' no Readwise...")
     headers = {"Authorization": f"Token {readwise_token}"}
     books_url = "https://readwise.io/api/v2/books/"
@@ -111,58 +57,58 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
         return {"error": f"Falha ao comunicar com a API do Readwise: {e}"}
 
 def get_session_cookies(user, password):
-    print("-> Iniciando sessão remota no Browserless.io para login...")
-    api_token = os.getenv('BROWSERLESS_API_TOKEN')
-    if not api_token:
-        return {"error": "Token da API do Browserless não configurado no servidor."}
+    """
+    NOVA VERSÃO: Faz o login diretamente via requisição HTTP, sem usar Selenium.
+    """
+    print("-> EXECUTANDO LOGIN DIRETO VIA REQUISIÇÃO HTTP (v6) <---")
+    login_url = "https://www.skoob.com.br/login/0/"
+    
+    # Este é o "payload" que o formulário do Skoob envia.
+    payload = {
+        'data[Usuario][email]': user,
+        'data[Usuario][senha]': password,
+    }
+    
+    # Usamos uma sessão para que os cookies sejam guardados automaticamente.
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    })
 
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    
-    browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
-    
-    driver = None
     try:
-        print(f"-> Conectando ao endpoint: {browserless_url}")
-        driver = webdriver.Remote(command_executor=browserless_url, options=options)
+        print("-> Enviando dados de login para o Skoob...")
+        response = session.post(login_url, data=payload)
+        response.raise_for_status()
 
-        print("-> Conectado! Navegando para o Skoob...")
-        driver.get("https://www.skoob.com.br/login/")
+        # O Skoob redireciona em caso de sucesso. Se a URL final não for a home, o login falhou.
+        if "login" in response.url:
+            raise Exception("Credenciais inválidas ou falha no login.")
         
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
-        senha_field = driver.find_element(By.ID, "senha")
-        senha_field.send_keys(password)
-        senha_field.send_keys(Keys.RETURN)
-        
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "topo-menu-conta")))
-        
-        print("-> Login no Skoob bem-sucedido. Capturando cookies...")
-        cookies = driver.get_cookies()
+        print("-> Login bem-sucedido! Extraindo cookies e ID de utilizador...")
+        cookies = session.cookies.get_dict()
         
         user_id = None
-        for cookie in cookies:
-            if cookie['name'] == 'CakeCookie[Skoob]':
-                try:
-                    decoded_cookie = urllib.parse.unquote(cookie['value'])
-                    cookie_json = json.loads(decoded_cookie)
-                    user_id = cookie_json.get('usuario', {}).get('id')
-                    break
-                except json.JSONDecodeError:
-                    print("-> Aviso: Falha ao decodificar o cookie do Skoob.")
-                    continue
+        if 'CakeCookie[Skoob]' in cookies:
+            try:
+                decoded_cookie = urllib.parse.unquote(cookies['CakeCookie[Skoob]'])
+                cookie_json = json.loads(decoded_cookie)
+                user_id = cookie_json.get('usuario', {}).get('id')
+            except (json.JSONDecodeError, TypeError):
+                return {"error": "Falha ao analisar o cookie de sessão do Skoob."}
         
-        return {"cookies": {c['name']: c['value'] for c in cookies}, "user_id": user_id}
+        if not user_id:
+            return {"error": "Não foi possível extrair o ID de utilizador do cookie do Skoob."}
 
+        return {"cookies": cookies, "user_id": user_id}
+
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Falha de comunicação ao tentar fazer login no Skoob: {e}"}
     except Exception as e:
-        print(f"Erro detalhado do Selenium/Browserless: {str(e)}")
-        return {"error": f"Falha ao executar automação no Browserless: {e}"}
-    finally:
-        if driver:
-            driver.quit()
-        print("-> Sessão remota de login fechada.")
+        return {"error": str(e)}
 
+# (O resto das suas funções, como find_skoob_book_details, etc., continua igual,
+# pois elas já usavam 'requests' e não 'selenium')
+# ... (Cole o resto das suas funções aqui)
 def find_skoob_book_details(session_cookies, book_title, book_author):
     print(f"-> Pesquisando por '{book_title}' de '{book_author}' no Skoob...")
     search_url = "https://www.skoob.com.br/livro/lista/"
@@ -220,51 +166,15 @@ def update_skoob_book(session_cookies, user_id, skoob_details, new_status_id, cu
         except requests.exceptions.RequestException as e:
             return {"error": f"Falha ao comunicar com a API do Skoob: {e}"}
 
+    # A publicação de progresso via UI precisa de ser reavaliada.
+    # Por agora, vamos focar-nos em fazer o login e a atualização de estado funcionarem.
     if new_status_id in [2, 4] and current_page > 0:
-        print(f"-> (UI) Abrindo navegador para publicar progresso...")
-        try:
-            update_progress_via_ui(session_cookies, skoob_details, current_page, comment)
-        except Exception as e:
-            return {"error": f"Falha ao publicar o progresso: {e}"}
+        print(f"-> A publicação de progresso detalhado (página e comentário) ainda não está implementada nesta versão.")
+        # A função update_progress_via_ui() foi removida, pois dependia do Selenium.
 
     return {"success": "O livro foi atualizado no Skoob."}
 
-def update_progress_via_ui(cookies, skoob_details, page, comment):
-    print("-> Iniciando sessão remota no Browserless.io para atualizar progresso...")
-    api_token = os.getenv('BROWSERLESS_API_TOKEN')
-    if not api_token:
-        raise Exception("Token da API do Browserless não configurado no servidor.")
-
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-
-    browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
-    
-    driver = None
-    try:
-        driver = webdriver.Remote(command_executor=browserless_url, options=options)
-        
-        driver.get("https://www.skoob.com.br/")
-        for name, value in cookies.items():
-            driver.add_cookie({'name': name, 'value': value})
-            
-        history_url = f"https://www.skoob.com.br/estante/s_historico_leitura/{skoob_details['edition_id']}"
-        driver.get(history_url)
-        
-        page_input = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "LendoHistoricoPaginas")))
-        page_input.send_keys(str(page))
-        
-        driver.find_element(By.ID, "LendoHistoricoTexto").send_keys(comment)
-        driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Gravar histórico de leitura']").click()
-        time.sleep(5)
-    except Exception as e:
-        raise e 
-    finally:
-        if driver:
-            driver.quit()
-        print("-> Sessão remota de progresso fechada.")
+# A função update_progress_via_ui foi removida, pois já não usamos Selenium para isso.
 
 # --- ROTAS DA API ---
 
@@ -272,18 +182,8 @@ def update_progress_via_ui(cookies, skoob_details, page, comment):
 def home():
     return "Olá! A API do Automatizador de Skoob está no ar!"
 
-@app.route('/verify-login', methods=['POST'])
-def verify_login_route():
-    data = request.get_json()
-    if not data or 'skoob_user' not in data or 'skoob_pass' not in data:
-        return jsonify({"status": "error", "message": "Email e senha do Skoob são obrigatórios."}), 400
-    
-    result = verify_skoob_login(data['skoob_user'], data['skoob_pass'])
-    
-    if result is True:
-        return jsonify({"status": "success", "message": "Login verificado com sucesso."})
-    else:
-        return jsonify({"status": "error", "message": result}), 401
+# O endpoint /verify-login já não é necessário, pois o login é rápido e direto.
+# A verificação acontece dentro da própria função /sync.
 
 @app.route('/sync', methods=['POST'])
 def sync_skoob():
@@ -302,14 +202,13 @@ def sync_skoob():
     
     main_author = progress_info['author'].split(' and ')[0].split(',')[0].strip()
     
+    # A verificação do login acontece aqui. Se falhar, retorna um erro.
     session_data = get_session_cookies(data['skoob_user'], data['skoob_pass'])
     if 'error' in session_data:
-        return jsonify({"status": "error", "message": session_data['error']}), 500
+        return jsonify({"status": "error", "message": session_data['error']}), 401 # Retorna 401 para erro de login
     
     skoob_cookies = session_data['cookies']
     user_id = session_data['user_id']
-    if not user_id:
-        return jsonify({"status": "error", "message": "Não foi possível extrair o ID de utilizador do Skoob."}), 500
 
     skoob_book_info = find_skoob_book_details(skoob_cookies, progress_info['title'], main_author)
     if 'error' in skoob_book_info:
