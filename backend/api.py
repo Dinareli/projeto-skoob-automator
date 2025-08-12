@@ -67,7 +67,8 @@ def get_session_cookies(user, password):
     """
     logging.info("-> Delegando login para o micro-serviço na Vercel...")
     # A URL do seu novo serviço de login
-    vercel_login_url = "https://skoob-login-service.vercel.app/api/login"
+    render_login_url = "https://skoob-login-service.onrender.com"
+
     
     payload = {
         "skoob_user": user,
