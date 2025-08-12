@@ -66,24 +66,34 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
         return {"error": f"Falha ao comunicar com a API do Readwise: {e}"}
 
 def get_session_cookies(user, password):
-    logging.info("EXECUTANDO LOGIN COM SCREENSHOT DE DEPURAÇÃO (v10)")
+    logging.info("EXECUTANDO LOGIN COM CAPABILITIES MANUAIS (v11)")
     api_token = os.getenv('BROWSERLESS_API_TOKEN')
     if not api_token:
         logging.error("Token da API do Browserless não configurado.")
         return {"error": "Token da API do Browserless não configurado no servidor."}
 
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument("--window-size=1280,720") # Define um tamanho de janela para o screenshot
-    
     browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
+    
+    # --- INÍCIO DA CORREÇÃO ---
+    # Construímos as "capabilities" manualmente para garantir compatibilidade.
+    capabilities = {
+        "browserName": "chrome",
+        "goog:chromeOptions": {
+            "args": [
+                '--headless',
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--window-size=1280,720'
+            ]
+        }
+    }
+    # --- FIM DA CORREÇÃO ---
     
     driver = None
     try:
         logging.info(f"Conectando ao endpoint: {browserless_url}")
-        driver = webdriver.Remote(command_executor=browserless_url, options=options)
+        # Usamos 'desired_capabilities' em vez de 'options'
+        driver = webdriver.Remote(command_executor=browserless_url, desired_capabilities=capabilities)
 
         logging.info("Conectado! Navegando para o Skoob...")
         driver.get("https://www.skoob.com.br/login/")
@@ -92,18 +102,6 @@ def get_session_cookies(user, password):
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(user)
         driver.find_element(By.ID, "senha").send_keys(password)
         
-        # --- INÍCIO DA LÓGICA DE DEPURAÇÃO ---
-        logging.info("Tirando screenshot ANTES de submeter o formulário...")
-        try:
-            # Tira o screenshot e obtém os dados como base64
-            screenshot_base64 = driver.get_screenshot_as_base64()
-            logging.debug("--- SCREENSHOT EM BASE64 (INÍCIO) ---")
-            logging.debug(screenshot_base64) # Imprime a string gigante nos logs
-            logging.debug("--- SCREENSHOT EM BASE64 (FIM) ---")
-        except Exception as screenshot_e:
-            logging.error(f"Não foi possível tirar o screenshot: {screenshot_e}")
-        # --- FIM DA LÓGICA DE DEPURAÇÃO ---
-
         logging.info("Submetendo o formulário de login...")
         login_form = driver.find_element(By.ID, "login-form")
         login_form.submit()
@@ -211,16 +209,23 @@ def update_progress_via_ui(cookies, skoob_details, page, comment):
     if not api_token:
         raise Exception("Token da API do Browserless não configurado no servidor.")
 
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-
     browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
+    
+    capabilities = {
+        "browserName": "chrome",
+        "goog:chromeOptions": {
+            "args": [
+                '--headless',
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--window-size=1280,720'
+            ]
+        }
+    }
     
     driver = None
     try:
-        driver = webdriver.Remote(command_executor=browserless_url, options=options)
+        driver = webdriver.Remote(command_executor=browserless_url, desired_capabilities=capabilities)
         
         driver.get("https://www.skoob.com.br/")
         for name, value in cookies.items():
