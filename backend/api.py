@@ -66,7 +66,7 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
         return {"error": f"Falha ao comunicar com a API do Readwise: {e}"}
 
 def get_session_cookies(user, password):
-    logging.info("EXECUTANDO LOGIN COM CAPABILITIES MANUAIS (v11)")
+    logging.info("EXECUTANDO LOGIN COM PARÂMETRO 'OPTIONS' (v12)")
     api_token = os.getenv('BROWSERLESS_API_TOKEN')
     if not api_token:
         logging.error("Token da API do Browserless não configurado.")
@@ -75,25 +75,20 @@ def get_session_cookies(user, password):
     browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
     
     # --- INÍCIO DA CORREÇÃO ---
-    # Construímos as "capabilities" manualmente para garantir compatibilidade.
-    capabilities = {
-        "browserName": "chrome",
-        "goog:chromeOptions": {
-            "args": [
-                '--headless',
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--window-size=1280,720'
-            ]
-        }
-    }
+    # Criamos o objeto de opções normalmente
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--window-size=1280,720')
     # --- FIM DA CORREÇÃO ---
     
     driver = None
     try:
         logging.info(f"Conectando ao endpoint: {browserless_url}")
-        # Usamos 'desired_capabilities' em vez de 'options'
-        driver = webdriver.Remote(command_executor=browserless_url, desired_capabilities=capabilities)
+        # --- CORREÇÃO APLICADA AQUI ---
+        # Usamos o parâmetro 'options', que é o correto para o Selenium moderno
+        driver = webdriver.Remote(command_executor=browserless_url, options=options)
 
         logging.info("Conectado! Navegando para o Skoob...")
         driver.get("https://www.skoob.com.br/login/")
@@ -211,21 +206,15 @@ def update_progress_via_ui(cookies, skoob_details, page, comment):
 
     browserless_url = f"https://production-sfo.browserless.io/webdriver?token={api_token}"
     
-    capabilities = {
-        "browserName": "chrome",
-        "goog:chromeOptions": {
-            "args": [
-                '--headless',
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--window-size=1280,720'
-            ]
-        }
-    }
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--window-size=1280,720')
     
     driver = None
     try:
-        driver = webdriver.Remote(command_executor=browserless_url, desired_capabilities=capabilities)
+        driver = webdriver.Remote(command_executor=browserless_url, options=options)
         
         driver.get("https://www.skoob.com.br/")
         for name, value in cookies.items():
