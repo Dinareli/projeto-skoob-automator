@@ -66,11 +66,11 @@ def get_session_cookies(user, password):
     VERSÃO FINAL: Delega o login para o micro-serviço no Render.
     """
     logging.info("-> Delegando login para o micro-serviço no Render...")
+    
     # --- INÍCIO DA CORREÇÃO ---
-    # A URL do seu novo serviço de login no Render
-    # Lembre-se de substituir pela sua URL real se for diferente
-    render_login_url = "https://skoob-login-service.onrender.com"
-
+    # URL correta e completa do seu serviço de login no Render
+    render_login_url = "https://skoob-login-service.onrender.com/api/login"
+    # --- FIM DA CORREÇÃO ---
     
     payload = {
         "skoob_user": user,
@@ -78,9 +78,9 @@ def get_session_cookies(user, password):
     }
     
     try:
-        # Usa a variável correta 'render_login_url'
+        logging.info(f"-> Enviando pedido para: {render_login_url}")
+        # Usa a variável correta para fazer a chamada
         response = requests.post(render_login_url, json=payload, timeout=45)
-        # --- FIM DA CORREÇÃO ---
         
         response.raise_for_status()
         data = response.json()
