@@ -63,10 +63,12 @@ def get_latest_progress_from_readwise(book_title, readwise_token):
 
 def get_session_cookies(user, password):
     """
-    NOVA VERSÃO: Delega o login para o micro-serviço na Vercel.
+    VERSÃO FINAL: Delega o login para o micro-serviço no Render.
     """
-    logging.info("-> Delegando login para o micro-serviço na Vercel...")
-    # A URL do seu novo serviço de login
+    logging.info("-> Delegando login para o micro-serviço no Render...")
+    # --- INÍCIO DA CORREÇÃO ---
+    # A URL do seu novo serviço de login no Render
+    # Lembre-se de substituir pela sua URL real se for diferente
     render_login_url = "https://skoob-login-service.onrender.com"
 
     
@@ -76,28 +78,26 @@ def get_session_cookies(user, password):
     }
     
     try:
-        # Faz um pedido POST para o serviço, com um timeout de 45 segundos
-        response = requests.post(vercel_login_url, json=payload, timeout=45)
+        # Usa a variável correta 'render_login_url'
+        response = requests.post(render_login_url, json=payload, timeout=45)
+        # --- FIM DA CORREÇÃO ---
         
-        # Verifica se o pedido foi bem-sucedido (códigos 2xx)
         response.raise_for_status()
-        
         data = response.json()
         
         if data.get("status") == "success":
-            logging.info("-> Login via Vercel bem-sucedido.")
+            logging.info("-> Login via Render bem-sucedido.")
             return {
                 "cookies": data.get("cookies"),
                 "user_id": data.get("user_id")
             }
         else:
-            # Se o serviço Vercel retornou um erro, passa-o para a frente
             error_message = data.get('message', 'Erro desconhecido do serviço de login.')
-            logging.error(f"-> Micro-serviço Vercel retornou um erro: {error_message}")
+            logging.error(f"-> Micro-serviço Render retornou um erro: {error_message}")
             return {"error": error_message}
 
     except requests.exceptions.RequestException as e:
-        logging.error(f"-> Falha ao comunicar com o micro-serviço Vercel: {e}")
+        logging.error(f"-> Falha ao comunicar com o micro-serviço Render: {e}")
         return {"error": f"Não foi possível conectar ao serviço de login: {e}"}
 
 def find_skoob_book_details(session_cookies, book_title, book_author):
@@ -146,7 +146,7 @@ def get_current_book_status(session_cookies, user_id, edition_id):
         return None 
 
 def update_skoob_book(session_cookies, user_id, skoob_details, new_status_id, current_page=0, comment=""):
-    # (Esta função continua igual, mas a publicação de progresso detalhado foi removida)
+    # (Esta função continua igual)
     status_map = {1: "Lido", 2: "Lendo", 3: "Quero ler", 4: "Relendo", 5: "Abandonei"}
     
     current_status = get_current_book_status(session_cookies, user_id, skoob_details['edition_id'])
@@ -163,7 +163,7 @@ def update_skoob_book(session_cookies, user_id, skoob_details, new_status_id, cu
             return {"error": f"Falha ao comunicar com a API do Skoob: {e}"}
 
     if new_status_id in [2, 4] and current_page > 0:
-        logging.warning("A publicação de progresso detalhado (página e comentário) foi removida nesta arquitetura simplificada.")
+        logging.warning("A publicação de progresso detalhado foi removida nesta arquitetura.")
 
     return {"success": "O livro foi atualizado no Skoob."}
 
