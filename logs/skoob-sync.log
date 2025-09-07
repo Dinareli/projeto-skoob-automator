@@ -1,0 +1,109 @@
+====== START Sun Sep  7 22:42:25 UTC 2025 ======
+[INFO] Creating Python virtual environment...
+[INFO] Installing dependencies...
+Requirement already satisfied: pip in ./.venv/lib/python3.12/site-packages (25.0.1)
+Collecting pip
+  Using cached pip-25.2-py3-none-any.whl.metadata (4.7 kB)
+Collecting setuptools
+  Using cached setuptools-80.9.0-py3-none-any.whl.metadata (6.6 kB)
+Using cached pip-25.2-py3-none-any.whl (1.8 MB)
+Using cached setuptools-80.9.0-py3-none-any.whl (1.2 MB)
+Installing collected packages: setuptools, pip
+  Attempting uninstall: pip
+    Found existing installation: pip 25.0.1
+    Uninstalling pip-25.0.1:
+      Successfully uninstalled pip-25.0.1
+Successfully installed pip-25.2 setuptools-80.9.0
+Collecting requests (from -r requirements.txt (line 1))
+  Using cached requests-2.32.5-py3-none-any.whl.metadata (4.9 kB)
+Collecting beautifulsoup4 (from -r requirements.txt (line 2))
+  Using cached beautifulsoup4-4.13.5-py3-none-any.whl.metadata (3.8 kB)
+Collecting undetected-chromedriver (from -r requirements.txt (line 3))
+  Using cached undetected_chromedriver-3.5.5-py3-none-any.whl
+Collecting selenium (from -r requirements.txt (line 4))
+  Using cached selenium-4.35.0-py3-none-any.whl.metadata (7.4 kB)
+Collecting webdriver-manager (from -r requirements.txt (line 5))
+  Using cached webdriver_manager-4.0.2-py2.py3-none-any.whl.metadata (12 kB)
+Collecting charset_normalizer<4,>=2 (from requests->-r requirements.txt (line 1))
+  Using cached charset_normalizer-3.4.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (36 kB)
+Collecting idna<4,>=2.5 (from requests->-r requirements.txt (line 1))
+  Using cached idna-3.10-py3-none-any.whl.metadata (10 kB)
+Collecting urllib3<3,>=1.21.1 (from requests->-r requirements.txt (line 1))
+  Using cached urllib3-2.5.0-py3-none-any.whl.metadata (6.5 kB)
+Collecting certifi>=2017.4.17 (from requests->-r requirements.txt (line 1))
+  Using cached certifi-2025.8.3-py3-none-any.whl.metadata (2.4 kB)
+Collecting soupsieve>1.2 (from beautifulsoup4->-r requirements.txt (line 2))
+  Using cached soupsieve-2.8-py3-none-any.whl.metadata (4.6 kB)
+Collecting typing-extensions>=4.0.0 (from beautifulsoup4->-r requirements.txt (line 2))
+  Using cached typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting websockets (from undetected-chromedriver->-r requirements.txt (line 3))
+  Using cached websockets-15.0.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.8 kB)
+Collecting trio~=0.30.0 (from selenium->-r requirements.txt (line 4))
+  Using cached trio-0.30.0-py3-none-any.whl.metadata (8.5 kB)
+Collecting trio-websocket~=0.12.2 (from selenium->-r requirements.txt (line 4))
+  Using cached trio_websocket-0.12.2-py3-none-any.whl.metadata (5.1 kB)
+Collecting typing-extensions>=4.0.0 (from beautifulsoup4->-r requirements.txt (line 2))
+  Using cached typing_extensions-4.14.1-py3-none-any.whl.metadata (3.0 kB)
+Collecting websocket-client~=1.8.0 (from selenium->-r requirements.txt (line 4))
+  Using cached websocket_client-1.8.0-py3-none-any.whl.metadata (8.0 kB)
+Collecting attrs>=23.2.0 (from trio~=0.30.0->selenium->-r requirements.txt (line 4))
+  Using cached attrs-25.3.0-py3-none-any.whl.metadata (10 kB)
+Collecting sortedcontainers (from trio~=0.30.0->selenium->-r requirements.txt (line 4))
+  Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+Collecting outcome (from trio~=0.30.0->selenium->-r requirements.txt (line 4))
+  Using cached outcome-1.3.0.post0-py2.py3-none-any.whl.metadata (2.6 kB)
+Collecting sniffio>=1.3.0 (from trio~=0.30.0->selenium->-r requirements.txt (line 4))
+  Using cached sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+Collecting wsproto>=0.14 (from trio-websocket~=0.12.2->selenium->-r requirements.txt (line 4))
+  Using cached wsproto-1.2.0-py3-none-any.whl.metadata (5.6 kB)
+Collecting pysocks!=1.5.7,<2.0,>=1.5.6 (from urllib3[socks]<3.0,>=2.5.0->selenium->-r requirements.txt (line 4))
+  Using cached PySocks-1.7.1-py3-none-any.whl.metadata (13 kB)
+Collecting python-dotenv (from webdriver-manager->-r requirements.txt (line 5))
+  Using cached python_dotenv-1.1.1-py3-none-any.whl.metadata (24 kB)
+Collecting packaging (from webdriver-manager->-r requirements.txt (line 5))
+  Using cached packaging-25.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting h11<1,>=0.9.0 (from wsproto>=0.14->trio-websocket~=0.12.2->selenium->-r requirements.txt (line 4))
+  Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Using cached requests-2.32.5-py3-none-any.whl (64 kB)
+Using cached charset_normalizer-3.4.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (151 kB)
+Using cached idna-3.10-py3-none-any.whl (70 kB)
+Using cached urllib3-2.5.0-py3-none-any.whl (129 kB)
+Using cached beautifulsoup4-4.13.5-py3-none-any.whl (105 kB)
+Using cached selenium-4.35.0-py3-none-any.whl (9.6 MB)
+Using cached trio-0.30.0-py3-none-any.whl (499 kB)
+Using cached trio_websocket-0.12.2-py3-none-any.whl (21 kB)
+Using cached typing_extensions-4.14.1-py3-none-any.whl (43 kB)
+Using cached PySocks-1.7.1-py3-none-any.whl (16 kB)
+Using cached websocket_client-1.8.0-py3-none-any.whl (58 kB)
+Using cached webdriver_manager-4.0.2-py2.py3-none-any.whl (27 kB)
+Using cached attrs-25.3.0-py3-none-any.whl (63 kB)
+Using cached certifi-2025.8.3-py3-none-any.whl (161 kB)
+Using cached outcome-1.3.0.post0-py2.py3-none-any.whl (10 kB)
+Using cached sniffio-1.3.1-py3-none-any.whl (10 kB)
+Using cached soupsieve-2.8-py3-none-any.whl (36 kB)
+Using cached wsproto-1.2.0-py3-none-any.whl (24 kB)
+Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+Using cached packaging-25.0-py3-none-any.whl (66 kB)
+Using cached python_dotenv-1.1.1-py3-none-any.whl (20 kB)
+Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+Using cached websockets-15.0.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (182 kB)
+Installing collected packages: sortedcontainers, websockets, websocket-client, urllib3, typing-extensions, soupsieve, sniffio, python-dotenv, pysocks, packaging, idna, h11, charset_normalizer, certifi, attrs, wsproto, requests, outcome, beautifulsoup4, webdriver-manager, trio, trio-websocket, selenium, undetected-chromedriver
+
+Successfully installed attrs-25.3.0 beautifulsoup4-4.13.5 certifi-2025.8.3 charset_normalizer-3.4.3 h11-0.16.0 idna-3.10 outcome-1.3.0.post0 packaging-25.0 pysocks-1.7.1 python-dotenv-1.1.1 requests-2.32.5 selenium-4.35.0 sniffio-1.3.1 sortedcontainers-2.4.0 soupsieve-2.8 trio-0.30.0 trio-websocket-0.12.2 typing-extensions-4.14.1 undetected-chromedriver-3.5.5 urllib3-2.5.0 webdriver-manager-4.0.2 websocket-client-1.8.0 websockets-15.0.1 wsproto-1.2.0
+[INFO] Running Python script...
+--- Iniciando sincronização ---
+-> Buscando progresso no Readwise...
+-> Livro mais recente encontrado: 'Gelo e Sombras' (ID: 54617440)
+[AVISO DE TESTE] Injetando nota de teste no destaque.
+-> Progresso encontrado na nota do destaque: 51
+-> Novo progresso detectado (ID: 935561095).
+-> Pesquisando por 'Gelo e Sombras' de 'Audrey Coulthurst' no Skoob...
+-> Atualizando progresso para página 51 via UI...
+   -> Preenchendo o formulário de progresso...
+   -> Enviando o formulário...
+-> Formulário de progresso enviado com sucesso (sem erros detectados).
+-> Progresso salvo. Último destaque ID: 935561095
+
+--- Sincronização concluída ---
+[INFO] Script finished with RC=0
+====== END Sun Sep  7 22:42:54 UTC 2025 ======
