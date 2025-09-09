@@ -32,7 +32,7 @@ if not config:
     exit() # Encerra o script se a configuração não puder ser carregada
 
 # --- Variáveis de Configuração ---
-RUN_HEADLESS = True
+RUN_HEADLESS = False
 SKOOB_USER = config.get("skoob_user")
 SKOOB_PASS = config.get("skoob_pass")
 READWISE_TOKEN = config.get("readwise_token")
