@@ -3,3 +3,4 @@ beautifulsoup4
 undetected-chromedriver
 selenium
 webdriver-manager
+Flask

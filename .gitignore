@@ -143,3 +143,4 @@ logs/
 skoob_error.png
 antes_de_clicar.png
 *.deb
+config.json
