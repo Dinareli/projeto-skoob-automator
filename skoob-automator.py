@@ -16,13 +16,26 @@ import time
 import re
 import json
 
-# --- Variáveis de Configuração ---
-# Mude para False para ver o navegador em ação (útil para depuração e mais estável em alguns sistemas)
-RUN_HEADLESS = True
+# --- Carregamento de Configuração ---
+def load_config():
+    """Carrega as configurações do arquivo config.json."""
+    try:
+        with open('config.json', 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("[ERRO] Arquivo 'config.json' não encontrado ou inválido.")
+        print("-> Por favor, copie 'config.json.example', renomeie para 'config.json' e preencha com suas informações.")
+        return None
 
-SKOOB_USER = "dinareli.lima@gmail.com"
-SKOOB_PASS = "euamococa"
-READWISE_TOKEN = "TbP8OPBwhy82YU9vByDG99ZRmOTDabG2DXrxlvY3d1dlMItSCc"
+config = load_config()
+if not config:
+    exit() # Encerra o script se a configuração não puder ser carregada
+
+# --- Variáveis de Configuração ---
+RUN_HEADLESS = True
+SKOOB_USER = config.get("skoob_user")
+SKOOB_PASS = config.get("skoob_pass")
+READWISE_TOKEN = config.get("readwise_token")
 LAST_RUN_FILE = "last_run.json"
 
 # --- Funções de Persistência ---
