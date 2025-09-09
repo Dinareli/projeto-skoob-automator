@@ -1,4 +1,4 @@
-# Automação de Progresso de Leitura: Readwise para Skoob
+# Automação de Progresso de Leitura: Kindle para Skoob
 
 Este projeto automatiza a atualização do seu progresso de leitura no Skoob com base nos seus destaques mais recentes no Readwise.
 
