@@ -16,9 +16,8 @@ import time
 import re
 import json
 
-# --- Carregamento de Configuração ---
+# --- Carregamento do arquivo config.json. ---
 def load_config():
-    """Carrega as configurações do arquivo config.json."""
     try:
         with open('config.json', 'r') as f:
             return json.load(f)
@@ -38,7 +37,6 @@ SKOOB_PASS = config.get("skoob_pass")
 READWISE_TOKEN = config.get("readwise_token")
 LAST_RUN_FILE = "last_run.json"
 
-# --- Funções de Persistência ---
 
 def load_last_run():
     """Carrega o ID do último destaque sincronizado de um arquivo JSON."""
